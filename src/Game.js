@@ -604,7 +604,7 @@ export class Game {
     // 方块被卡住、离手太远一段时间才松手；快速转身时它会跟着甩过来
     const far = delta.length() / k;
     h.farTime = far > 2.2 * s ? (h.farTime ?? 0) + this._h : 0;
-    if (far > 4 * s || h.farTime > 0.6) {
+    if (far > 5.5 * s || h.farTime > 0.8) {
       this.dropHeld();
       return;
     }

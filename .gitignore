@@ -5,3 +5,6 @@ playtest-shots/
 .DS_Store
 mechtest-shots/
 dist-*/
+shots-*/
+tools/_*.mjs
+tools/dbg-*.mjs

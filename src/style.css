@@ -137,6 +137,19 @@ h2 {
   margin-bottom: 12px;
 }
 
+.levels .chapter {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.levels .chapter:first-child {
+  margin-top: 0;
+}
+
 .level-tile {
   padding: 14px;
   min-height: 84px;

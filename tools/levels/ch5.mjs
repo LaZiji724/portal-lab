@@ -45,7 +45,7 @@ function exitCorridorNZ(z, hw = 1.5, h = 3, len = 6, x = 0, y = 0) {
   add(
     {
       name: '倒计时',
-      hint: '开关只能让大门开 6 秒。力场会抹掉你身上的传送门——但传送门本身也是一条不经过力场的路。',
+      hint: '开关只让大门开 6 秒，走过去根本来不及。穿过力场会抹掉你的传送门——那就在力场另一边开门，然后别再碰它。',
       gun: 'both',
       spawn: { pos: [0, 0, 5], yaw: 0 },
       brushes: [
@@ -654,11 +654,14 @@ function exitCorridorNZ(z, hw = 1.5, h = 3, len = 6, x = 0, y = 0) {
       // ---- C：天花板蓝门 + 高墙橙门，借弹射板飞过酸液池
       await ev(() => {
         const pt = window.__pt;
-        pt.walkTo(0, -32, 5, 0.3);
+        pt.walkTo(2.5, -27, 5, 0.3); // 绕开按钮上的方块
+        pt.walkTo(2, -32, 5, 0.3);
         pt.walkTo(0, -37, 5, 0.3);
         pt.fire('blue', [0, 16, -40.5]);
-        pt.walkTo(0, -42, 5, 0.3);
+        pt.walkTo(2.5, -38, 5, 0.3); // 绕开弹射板
+        pt.walkTo(2.5, -42.5, 5, 0.3);
         pt.fire('orange', [0, 12.6, -34.5]);
+        pt.walkTo(0, -42, 5, 0.3);
         pt.walkTo(0, -39.5, 5, 0.2);
         pt.run(1.2);
       });
@@ -676,10 +679,9 @@ function exitCorridorNZ(z, hw = 1.5, h = 3, len = 6, x = 0, y = 0) {
         pt.fire('blue', [0, 1.3, D0 - 22]);
         pt.walkTo(0, D0 - 21.5, 4, 0.1);
         // 开关在橙门那边：把它的位置换算到蓝门这边再瞄准
-        const e = g.portals.orange.teleport.elements;
-        const [x, y, z] = [7, 1.0, D0 - 3];
-        pt.aim([e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14]]);
-        pt.use();
+        const o = g.portals.orange.position;
+        pt.useVia([o.x, o.y, o.z], [7, 1.0, D0 - 3]);
+        pt.run(0.05);
       }, D0);
       const sd = await ev(() => window.__pt.state());
       if (!sd.signals.s2) throw new Error('隔着传送门没按到开关：' + JSON.stringify(sd));

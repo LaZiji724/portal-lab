@@ -431,7 +431,7 @@ export class Launcher {
     this.arrows = vis.arrows;
     this.group.position.copy(this.pos);
     const d = this.target.clone().sub(this.pos);
-    this.arrows.rotation.y = Math.atan2(-d.x, -d.z) + Math.PI;
+    this.arrows.rotation.y = Math.atan2(-d.x, -d.z); // 箭头模型默认指向 -z
     game.levelGroup.add(this.group);
     const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(this.pos.x, this.pos.y + 0.085, this.pos.z));
     const col = game.world.createCollider(RAPIER.ColliderDesc.cylinder(0.085, 1.0).setCollisionGroups(GROUPS.world), body);

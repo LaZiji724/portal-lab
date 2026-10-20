@@ -1,0 +1,296 @@
+:root {
+  --bg: #0c0f12;
+  --panel: #13181d;
+  --line: #262d34;
+  --text: #e3e8ec;
+  --muted: #8b969f;
+  --blue: #1f8bff;
+  --orange: #ff7a12;
+  --accent: #5dff95;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 250px 1fr 280px;
+  grid-template-rows: 48px 1fr;
+  height: 100%;
+}
+
+#topbar {
+  grid-column: 1 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand .b {
+  color: var(--blue);
+}
+.brand .o {
+  color: var(--orange);
+}
+
+.tb-group {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: #1b2128;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+button {
+  padding: 6px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover {
+  border-color: #46525d;
+  background: #222932;
+}
+
+button.accent {
+  background: #1a3d27;
+  border-color: #2f7a4a;
+}
+
+button.danger {
+  border-color: #7a2f2f;
+}
+
+select,
+input,
+textarea {
+  padding: 5px 7px;
+}
+
+aside {
+  overflow-y: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 10px 12px;
+}
+
+#right {
+  border-right: none;
+  border-left: 1px solid var(--line);
+}
+
+#left {
+  display: flex;
+  flex-direction: column;
+}
+
+#left section.grow {
+  flex: 1;
+  min-height: 120px;
+}
+
+h3 {
+  margin: 10px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+label input:not([type='checkbox']):not([type='range']),
+label select,
+label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.add-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.add-grid button {
+  padding: 6px 4px;
+  font-size: 12px;
+}
+
+#list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#list li {
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+#list li:hover {
+  background: #1b2128;
+}
+
+#list li.sel {
+  background: #213044;
+}
+
+#list li .t {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+#viewport canvas {
+  display: block;
+}
+
+#view-tools {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 5px;
+  background: rgba(12, 15, 18, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  z-index: 2;
+}
+
+#view-tools label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0 4px;
+}
+
+#view-tools button.on {
+  border-color: var(--blue);
+  background: #16324f;
+}
+
+#help {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}
+
+.vec {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.vec input {
+  width: 100%;
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.prop-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+#issues {
+  margin-top: 16px;
+  font-size: 12px;
+}
+
+#issues .warn {
+  padding: 6px 8px;
+  margin: 4px 0;
+  color: #ffd27a;
+  background: #2a2312;
+  border-radius: 5px;
+}
+
+#issues .ok {
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 48px 46vh auto auto;
+    overflow-y: auto;
+    height: auto;
+  }
+  body {
+    overflow: auto;
+  }
+  #topbar {
+    grid-column: 1;
+  }
+  #viewport {
+    grid-row: 2;
+    min-height: 46vh;
+  }
+  #left,
+  #right {
+    border: none;
+    overflow: visible;
+  }
+}

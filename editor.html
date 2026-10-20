@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07090b" />
+    <title>关卡编辑器 · 传送门实验室</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <a class="brand" href="./index.html"><span class="b">传送</span><span class="o">门</span>实验室 · 关卡编辑器</a>
+        <div class="tb-group">
+          <select id="builtin" title="打开内置关卡"></select>
+          <button id="btn-new">新建</button>
+          <button id="btn-import">导入</button>
+          <button id="btn-export">导出 JSON</button>
+          <button id="btn-undo" title="Ctrl+Z">撤销</button>
+          <button id="btn-redo" title="Ctrl+Y">重做</button>
+          <button id="btn-play" class="accent">▶ 试玩</button>
+        </div>
+        <input type="file" id="file" accept=".json,application/json" hidden />
+      </header>
+      <aside id="left">
+        <section>
+          <h3>关卡信息</h3>
+          <label>名称<input id="lv-name" /></label>
+          <label>提示<textarea id="lv-hint" rows="3"></textarea></label>
+          <label
+            >传送门枪
+            <select id="lv-gun">
+              <option value="both">蓝 + 橙</option>
+              <option value="blue">只有蓝色</option>
+              <option value="orange">只有橙色</option>
+              <option value="none">禁用</option>
+            </select>
+          </label>
+        </section>
+        <section>
+          <h3>添加</h3>
+          <div class="add-grid">
+            <button data-add="brush:white">白色面板墙</button>
+            <button data-add="brush:metal">金属墙</button>
+            <button data-add="brush:concrete">混凝土</button>
+            <button data-add="brush:glass">玻璃</button>
+            <button data-add="brush:grate">栅格</button>
+            <button data-add="room">整个房间</button>
+            <button data-add="cube">方块</button>
+            <button data-add="button">按钮</button>
+            <button data-add="door">门</button>
+            <button data-add="exit">出口</button>
+            <button data-add="hazard">酸液</button>
+            <button data-add="light">灯</button>
+            <button data-add="portal">固定传送门</button>
+          </div>
+        </section>
+        <section class="grow">
+          <h3>物体列表</h3>
+          <ul id="list"></ul>
+        </section>
+      </aside>
+      <main id="viewport">
+        <div id="view-tools">
+          <button data-mode="translate" class="on" title="W">移动</button>
+          <button data-mode="scale" title="E">缩放尺寸</button>
+          <label>剖切高度 <input type="range" id="cut" min="-5" max="30" step="0.5" value="30" /></label>
+          <label><input type="checkbox" id="snap" checked /> 吸附 0.25m</label>
+        </div>
+        <div id="help">左键选择 · 右键/拖动旋转视角 · 滚轮缩放 · W 移动 · E 缩放 · Del 删除 · Ctrl+D 复制 · F 聚焦</div>
+      </main>
+      <aside id="right">
+        <h3>属性</h3>
+        <div id="props"><p class="muted">选中一个物体后可以在这里精确修改。</p></div>
+        <div id="issues"></div>
+      </aside>
+    </div>
+    <script type="module" src="/src/editor/main.js"></script>
+  </body>
+</html>

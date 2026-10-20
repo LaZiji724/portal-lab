@@ -807,7 +807,7 @@ export class Game {
     this.input.poll();
     let lookDX = 0;
     let lookDY = 0;
-    if (this.state === 'playing') {
+    if (this.state === 'playing' && !this.frozen) {
       [lookDX, lookDY] = this.input.consumeLook();
       this.player.look(lookDX, lookDY);
       const n = Math.max(1, Math.ceil(dt / (1 / 60) - 0.01));

@@ -19,8 +19,10 @@ export async function startHarness({ shots = 'playtest-shots', width = 960, heig
   await page.waitForFunction(() => window.__game?.world, null, { timeout: 60000 });
 
   // 页面内的小工具：瞄准、开枪、走到某处、等待
-  await page.evaluate(() => {
+  // FREEZE=1：暂停页面自己的实时循环，只由脚本推进时间（更稳定，也避免截图时等很久）
+  await page.evaluate((freeze) => {
     const g = window.__game;
+    g.frozen = freeze;
     const log = [];
     const fizzle = g._fizzle.bind(g);
     g._fizzle = (cube) => {
@@ -92,8 +94,37 @@ export async function startHarness({ shots = 'playtest-shots', width = 960, heig
       state() {
         return g.debugState();
       },
+      /** 隔着一扇门瞄准：portalPos 是目标所在那一侧的门（连通的），把目标点换算到门的这一侧 */
+      via(portalPos, target) {
+        const [x, y, z] = portalPos;
+        const near = (p) => p.placed && p.position.distanceToSquared({ x, y, z }) < 0.05;
+        // 同一位置可能有好几扇（按条件切换的）空间门，优先用连通的那一扇；单向门的出口端也可以用来换算
+        const P = g.portals.list.find((p) => near(p) && p.linked) ?? g.portals.list.find(near);
+        if (!P) throw new Error('找不到连通的门 @' + portalPos);
+        return P.position.clone().set(...target).applyMatrix4(P.teleport).toArray();
+      },
+      fireVia(color, portalPos, target) {
+        return this.fire(color, this.via(portalPos, target));
+      },
+      useVia(portalPos, target) {
+        return this.use(this.via(portalPos, target));
+      },
+      /** 把手里的方块放到 (x,z) 处的按钮上：从当前方向走到离按钮 1.5 米处，低头放下 */
+      drop(x, z, maxT = 10) {
+        const p = g.player.position;
+        const d = Math.hypot(x - p.x, z - p.z) || 1;
+        const sx = x + ((p.x - x) / d) * 1.5;
+        const sz = z + ((p.z - z) / d) * 1.5;
+        this.walkTo(sx, sz, maxT, 0.2);
+        this.face(x, z);
+        g.player.pitch = -0.6;
+        this.run(0.8);
+        this.use();
+        this.run(1.2);
+        g.player.pitch = 0;
+      },
     };
-  });
+  }, !!process.env.FREEZE);
 
   const ev = (fn, ...args) => page.evaluate(fn, ...args);
   const shot = async (name) => {
@@ -101,7 +132,12 @@ export async function startHarness({ shots = 'playtest-shots', width = 960, heig
       for (const s of document.querySelectorAll('.screen')) s.classList.remove('show');
       window.__game.render(0.016);
     });
-    await page.screenshot({ path: `${shots}/${name}.png` });
+    // SwiftShader 软件渲染很慢，门套门的画面可能要等很久；截图失败不算关卡失败
+    try {
+      await page.screenshot({ path: `${shots}/${name}.png`, timeout: 60000 });
+    } catch (e) {
+      console.log(`  （截图 ${name} 超时，跳过）`);
+    }
   };
   const results = [];
 

@@ -1,4 +1,4 @@
-import { LEVELS } from '../levels/index.js';
+import { LEVELS, CHAPTERS } from '../levels/index.js';
 
 const SETTINGS_KEY = 'portal-lab.settings';
 const PROGRESS_KEY = 'portal-lab.progress';
@@ -210,7 +210,15 @@ export class UI {
   refreshLevels() {
     const box = this.screens.levels.querySelector('.levels');
     box.innerHTML = '';
+    let chapter = -1;
     LEVELS.forEach((lv, i) => {
+      if ((lv.chapter ?? 0) !== chapter) {
+        chapter = lv.chapter ?? 0;
+        const head = document.createElement('h3');
+        head.className = 'chapter';
+        head.textContent = CHAPTERS?.[chapter] ?? `第 ${chapter + 1} 章`;
+        box.appendChild(head);
+      }
       const t = document.createElement('button');
       t.className = 'level-tile';
       t.disabled = i > this.progress.unlocked;

@@ -12,7 +12,7 @@ const pick = all
   .map((l, i) => ({ ...l, i }))
   .filter((l) => {
     if (!args.length) return true;
-    return args.some((a) => (a.startsWith('ch') ? l.chapter + 1 === Number(a.slice(2)) : Number(a) === l.i + 1));
+    return args.some((a) => (a.startsWith('ch') ? l.num === Number(a.slice(2)) : Number(a) === l.i + 1));
   });
 
 const H = await startHarness({ shots: process.env.SHOTS ?? 'playtest-shots' });

@@ -182,24 +182,39 @@ export class PortalSystem {
     if (k < 0) return { ok: false, reason: 'surface' };
     n.set(0, 0, 0).setComponent(k, Math.sign(hit.normal[AXES[k]]));
 
-    // 门的“上”方向：墙面上永远朝上；地面/天花板上朝着玩家视线方向
+    // 门的“上”方向：墙面上永远朝上；地面/天花板上朝着玩家视线方向。
+    // 地面/天花板上的窄条面板放不下斜着的门时，改成沿面板长边摆正
+    const ups = [];
     if (k === 1) {
-      _up.copy(viewDir).setY(0);
-      if (_up.lengthSq() < 1e-4) _up.set(0, 0, -1);
-      _up.normalize();
-    } else _up.set(0, 1, 0);
-    _right.crossVectors(_up, n).normalize();
+      const v = new THREE.Vector3(viewDir.x, 0, viewDir.z);
+      if (v.lengthSq() < 1e-4) v.set(0, 0, -1);
+      v.normalize();
+      ups.push(v);
+      const ax = Math.abs(v.x) > Math.abs(v.z) ? new THREE.Vector3(Math.sign(v.x), 0, 0) : new THREE.Vector3(0, 0, Math.sign(v.z) || -1);
+      ups.push(ax, new THREE.Vector3(-ax.z, 0, ax.x));
+    } else ups.push(new THREE.Vector3(0, 1, 0));
 
     const ua = (k + 1) % 3;
     const va = (k + 2) % 3;
-    const hu = Math.hypot(HW * _right.getComponent(ua), HH * _up.getComponent(ua));
-    const hv = Math.hypot(HW * _right.getComponent(va), HH * _up.getComponent(va));
     const min = (a) => b.pos[a] - b.size[a] / 2;
     const max = (a) => b.pos[a] + b.size[a] / 2;
     const plane = b.pos[k] + n.getComponent(k) * (b.size[k] / 2);
-    const lo = [min(ua) + hu, min(va) + hv];
-    const hi = [max(ua) - hu, max(va) - hv];
-    if (lo[0] > hi[0] + 1e-4 || lo[1] > hi[1] + 1e-4) return { ok: false, reason: 'small' };
+    let lo;
+    let hi;
+    let fits = false;
+    for (const u of ups) {
+      _up.copy(u);
+      _right.crossVectors(_up, n).normalize();
+      const hu = Math.hypot(HW * _right.getComponent(ua), HH * _up.getComponent(ua));
+      const hv = Math.hypot(HW * _right.getComponent(va), HH * _up.getComponent(va));
+      lo = [min(ua) + hu, min(va) + hv];
+      hi = [max(ua) - hu, max(va) - hv];
+      if (lo[0] <= hi[0] + 1e-4 && lo[1] <= hi[1] + 1e-4) {
+        fits = true;
+        break;
+      }
+    }
+    if (!fits) return { ok: false, reason: 'small' };
     const clampUV = (c) => {
       c[0] = THREE.MathUtils.clamp(c[0], lo[0], hi[0]);
       c[1] = THREE.MathUtils.clamp(c[1], lo[1], hi[1]);

@@ -231,7 +231,10 @@ export class Player {
     for (const P of portals) {
       if (!P.linked || !this.fits(P)) continue;
       const d1 = P.signedDistance(after);
-      if (d1 >= 0 || d1 < -Math.max(2.4, this.height * 1.3)) continue;
+      // 身体有一部分已经到了门平面背后（掉进地上的门时是脚先进去）就要限制
+      const ext = this.radius + Math.abs(P.normal.y) * this.halfHeight - 0.08 * this.scale;
+      if (d1 >= ext || d1 < -Math.max(2.4, this.height * 1.3)) continue;
+      if (d1 >= 0 && this.velocity.dot(P.normal) > 0) continue; // 正在从门里出来：可以往旁边挪开
       P.toLocal(before, _local);
       const bx = _local.x;
       const by = _local.y;

@@ -291,32 +291,72 @@ function acid(size, aniso) {
   });
 }
 
+/** 凝胶：一层有光泽、带气泡起伏的涂料 */
+function gel(size, aniso, color, emissive, seed) {
+  const n = makeNoise(size, seed, 5, 6);
+  const blobs = makeNoise(size, seed + 1, 3, 12);
+  const height = new Float32Array(size * size);
+  for (let i = 0; i < height.length; i++) height[i] = n[i] * 0.5 + Math.max(0, blobs[i] - 0.55) * 1.6;
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    emissive,
+    emissiveIntensity: 0.18,
+    normalMap: tex(heightToNormal(height, size, 8), false, aniso),
+    roughness: 0.18,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.1,
+    envMapIntensity: 1.1,
+  });
+}
+
 let cache = null;
 
-/** 材质库。brush 的 mat 字段：white（可贴门）、metal、concrete、glass、grate */
+/** 材质库。brush 的 mat 字段见 BRUSH_MATERIALS */
 export function getMaterials(quality = 'high', anisotropy = 4) {
   if (cache) return cache;
   const size = quality === 'low' ? 256 : 512;
+  const white = whitePanels(size, anisotropy);
+  // 小号面板：贴图更密、偏冷色；大号面板：贴图更疏、偏暖色。面板的“格子大小”就是门的大小
+  const whiteS = white.clone();
+  whiteS.color = new THREE.Color(0xd8ecff);
+  const whiteL = white.clone();
+  whiteL.color = new THREE.Color(0xfff0d6);
   cache = {
-    white: whitePanels(size, anisotropy),
+    white,
+    whiteS,
+    whiteL,
     metal: darkMetal(size, anisotropy),
     concrete: roughConcrete(size, anisotropy),
     glass: glass(),
     grate: grate(size, anisotropy),
     acid: acid(size, anisotropy),
+    bounce: gel(size, anisotropy, 0x1a7dff, 0x0a3cff, 131),
+    speed: gel(size, anisotropy, 0xff7a10, 0xff4a00, 151),
   };
   return cache;
 }
 
-export const BRUSH_MATERIALS = ['white', 'metal', 'concrete', 'glass', 'grate'];
+export const BRUSH_MATERIALS = ['white', 'whiteS', 'whiteL', 'metal', 'concrete', 'glass', 'grate', 'bounce', 'speed'];
 export const MATERIAL_LABELS = {
   white: '白色面板（可开门）',
+  whiteS: '小号面板（开出小门，穿过会缩小）',
+  whiteL: '大号面板（开出大门，穿过会放大）',
   metal: '金属（不可开门）',
   concrete: '混凝土（不可开门）',
   glass: '玻璃（挡子弹）',
   grate: '栅格（子弹可穿过）',
+  bounce: '弹跳凝胶（蓝）',
+  speed: '推进凝胶（橙）',
 };
-export const PORTALABLE = new Set(['white']);
+/** 可开门的面板，以及在上面开出的门的尺寸倍率 */
+export const PORTALABLE = new Map([
+  ['white', 1],
+  ['whiteS', 0.45],
+  ['whiteL', 2.2],
+]);
+/** 贴图重复周期（米）：小号面板格子小，大号面板格子大 */
+export const TEX_SCALE = { white: 2, whiteS: 0.9, whiteL: 4.4 };
 
 /** 每 2 米重复一次贴图，并按世界坐标展开 UV，相邻墙体的纹理可以无缝衔接 */
 export function brushGeometry(size, pos, texScale = 2) {

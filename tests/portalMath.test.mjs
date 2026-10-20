@@ -66,3 +66,36 @@ test('视角拆分：yaw / pitch / roll 来回转换不丢信息', () => {
     assert.ok(Math.abs(Math.abs(q.dot(q2)) - 1) < 1e-6, `${[yaw, pitch, roll]} -> ${Object.values(r)}`);
   }
 });
+
+test('大小不同的两扇门：穿过去会按大小比例缩放，来回一次还原', () => {
+  const a = new Portal('gate', { shape: 'rect', halfW: 1, halfH: 1.5 });
+  const b = new Portal('gate', { shape: 'rect', halfW: 0.25, halfH: 0.375 });
+  a.other = b;
+  b.other = a;
+  a.place(v(0, 1.5, 0), v(0, 0, 1), v(0, 1, 0), null);
+  b.place(v(20, 0.375, 0), v(-1, 0, 0), v(0, 1, 0), null);
+  const k = computeTeleport(a, b, a.teleport, a.teleportQ);
+  computeTeleport(b, a, b.teleport, b.teleportQ);
+  assert.ok(Math.abs(k - 0.25) < 1e-9);
+  // 入口门边缘对应出口门边缘
+  near(v(1, 1.5, 0).applyMatrix4(a.teleport), v(20, 0.375, -0.25), 1e-6);
+  const p = v(0.4, 2.1, -0.3);
+  near(p.clone().applyMatrix4(a.teleport).applyMatrix4(b.teleport), p, 1e-5);
+});
+
+test('矩形门与椭圆门的判定', () => {
+  const r = new Portal('gate', { shape: 'rect', halfW: 1, halfH: 2 });
+  const e = new Portal('blue');
+  assert.ok(r.contains(v(0.95, 1.95, 0)));
+  assert.ok(!r.contains(v(1.05, 0, 0)));
+  assert.ok(!e.contains(v(0.6, 1.0, 0))); // 椭圆的角落在门外
+  assert.ok(e.contains(v(0, 1.0, 0)));
+});
+
+test('能不能钻过门：巨人钻不过普通门，小人可以', () => {
+  const e = new Portal('blue');
+  e.place(v(0, 1.12, 0), v(0, 0, 1), v(0, 1, 0), null);
+  assert.ok(e.fits(0.3, 1.8));
+  assert.ok(!e.fits(0.66, 3.96));
+  assert.ok(e.fits(0.135, 0.81));
+});

@@ -6,5 +6,8 @@ import level4 from './level4.json';
 import level5 from './level5.json';
 import level6 from './level6.json';
 
+/** 章节标题（关卡的 chapter 字段是这里的下标） */
+export const CHAPTERS = ["第 1 章 · 基础训练"];
+
 /** 内置关卡，按难度排序 */
 export const LEVELS = [level0, level1, level2, level3, level4, level5, level6];

@@ -7,22 +7,80 @@ import { Player, PLAYER } from './player/Player.js';
 import { PortalGunView, ShotEffects } from './player/PortalGun.js';
 import { PortalSystem } from './portal/PortalSystem.js';
 import { PortalRenderer } from './portal/PortalRenderer.js';
-import { Portal } from './portal/Portal.js';
-import { getMaterials, brushGeometry, PORTALABLE } from './world/materials.js';
+import { getMaterials, brushGeometry, PORTALABLE, TEX_SCALE } from './world/materials.js';
 import { createLightFixture } from './world/entityVisuals.js';
-import { Cube, Button, Door, Exit, Hazard } from './world/entities.js';
+import { Cube, Button, Door, Exit, Hazard, Switch, LaserEmitter, Catcher, Bridge, Launcher, Platform, Fizzler } from './world/entities.js';
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _d = new THREE.Vector3();
 const _local = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _yawQ = new THREE.Quaternion();
+const _Y = new THREE.Vector3(0, 1, 0);
 const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 
 export const QUALITY = {
-  low: { pixelRatio: 1, depth: 1, rtScale: 0.5, shadows: false },
-  medium: { pixelRatio: 1.25, depth: 2, rtScale: 0.75, shadows: true },
-  high: { pixelRatio: 2, depth: 3, rtScale: 1, shadows: true },
+  low: { pixelRatio: 1, depth: 1, rtScale: 0.5, shadows: false, budget: 4 },
+  medium: { pixelRatio: 1.25, depth: 2, rtScale: 0.75, shadows: true, budget: 8 },
+  high: { pixelRatio: 2, depth: 3, rtScale: 1, shadows: true, budget: 13 },
 };
+
+/** 激光光束的画法：一根发光的细圆柱 + 白色内芯 */
+class LaserBeams {
+  constructor(scene) {
+    this.group = new THREE.Group();
+    scene.add(this.group);
+    this.geo = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true);
+    this.geo.translate(0, 0.5, 0);
+    this.geo.rotateX(Math.PI / 2); // 沿 +Z 方向，从 0 到 1
+    this.outer = new THREE.MeshBasicMaterial({ color: 0xff3018, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+    this.inner = new THREE.MeshBasicMaterial({ color: 0xffd0c0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+    this.pool = [];
+    this.used = 0;
+    this.spark = new THREE.PointLight(0xff4020, 0, 3, 2);
+    scene.add(this.spark);
+  }
+  begin() {
+    this.used = 0;
+  }
+  add(a, b, scale = 1) {
+    const len = a.distanceTo(b);
+    if (len < 1e-3) return;
+    let item = this.pool[this.used];
+    if (!item) {
+      item = { outer: new THREE.Mesh(this.geo, this.outer), inner: new THREE.Mesh(this.geo, this.inner) };
+      item.outer.renderOrder = 4;
+      item.inner.renderOrder = 5;
+      this.group.add(item.outer, item.inner);
+      this.pool.push(item);
+    }
+    this.used++;
+    for (const [m, r] of [
+      [item.outer, 0.035 * scale],
+      [item.inner, 0.012 * scale],
+    ]) {
+      m.visible = true;
+      m.position.copy(a);
+      m.lookAt(b);
+      m.scale.set(r, r, len);
+    }
+  }
+  end(hitPoint) {
+    for (let i = this.used; i < this.pool.length; i++) {
+      this.pool[i].outer.visible = false;
+      this.pool[i].inner.visible = false;
+    }
+    if (hitPoint) {
+      this.spark.position.copy(hitPoint);
+      this.spark.intensity = 1.5;
+    } else this.spark.intensity = 0;
+  }
+  clear() {
+    this.begin();
+    this.end(null);
+  }
+}
 
 export class Game {
   constructor(canvas, { quality = 'high', touch = false } = {}) {
@@ -52,9 +110,10 @@ export class Game {
     this.scene.add(this.player.bodyMesh);
     this.portals = new PortalSystem(this);
     this.portals.addToScene(this.scene);
-    this.portalRenderer = new PortalRenderer(this.renderer, this.scene, this.portals.list, {});
+    this.portalRenderer = new PortalRenderer(this.renderer, this.scene, () => this.portals.list, {});
     this.gunView = new PortalGunView();
     this.effects = new ShotEffects(this.scene);
+    this.beams = new LaserBeams(this.scene);
 
     this.levelGroup = new THREE.Group();
     this.scene.add(this.levelGroup);
@@ -62,11 +121,8 @@ export class Game {
     this.world = null;
     this.level = null;
     this.levelIndex = -1;
-    this.cubes = [];
-    this.buttons = [];
-    this.doors = [];
-    this.exits = [];
-    this.hazards = [];
+    this._clearLists();
+    this.signals = new Map();
     this.state = 'menu'; // menu | playing | paused | complete | dead
     this.time = 0;
     this.listeners = {};
@@ -80,6 +136,22 @@ export class Game {
     this.setQuality(quality);
     window.addEventListener('resize', () => this.resize());
     this.resize();
+  }
+
+  _clearLists() {
+    this.cubes = [];
+    this.buttons = [];
+    this.doors = [];
+    this.exits = [];
+    this.hazards = [];
+    this.switches = [];
+    this.lasers = [];
+    this.catchers = [];
+    this.bridges = [];
+    this.launchers = [];
+    this.platforms = [];
+    this.fizzlers = [];
+    this.gateDefs = [];
   }
 
   on(name, fn) {
@@ -96,7 +168,7 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cfg.pixelRatio));
     this.shadows = cfg.shadows;
     this.renderer.shadowMap.enabled = cfg.shadows;
-    this.portalRenderer.setQuality({ depth: cfg.depth, scale: cfg.rtScale });
+    this.portalRenderer.setQuality({ depth: cfg.depth, scale: cfg.rtScale, budget: cfg.budget });
     // 阴影开关会改变着色器，需要重新编译
     this.scene.traverse((o) => {
       if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.needsUpdate = true));
@@ -126,6 +198,25 @@ export class Game {
     this.portalRenderer.setSize(size.x, size.y);
   }
 
+  // ---------------------------------------------------------------- 信号（按钮、开关、激光接收器）
+
+  /** 条件列表：每一项是信号名，前面加 ! 表示取反；全部满足才为真。空列表返回 dflt */
+  cond(list, dflt = false) {
+    if (list === undefined || list === null) return dflt;
+    if (!Array.isArray(list)) list = [list];
+    if (!list.length) return dflt;
+    return list.every((id) => (id.startsWith('!') ? !this.signals.get(id.slice(1)) : !!this.signals.get(id)));
+  }
+
+  _updateSignals() {
+    const s = this.signals;
+    s.clear();
+    const set = (id, on) => s.set(id, (s.get(id) ?? false) || on);
+    for (const b of this.buttons) set(b.id, b.pressed);
+    for (const sw of this.switches) set(sw.id, sw.on);
+    for (const c of this.catchers) set(c.id, c.lit);
+  }
+
   // ---------------------------------------------------------------- 关卡
 
   loadLevel(def, index = -1) {
@@ -138,6 +229,15 @@ export class Game {
     this.eventQueue = new RAPIER.EventQueue(false);
     this.player.attach(this.world);
     this.colliderInfo.set(this.player.collider.handle, { kind: 'player' });
+
+    if (def.fog) {
+      const c = new THREE.Color(def.fog.color ?? 0x07090b);
+      this.scene.fog = new THREE.Fog(c, def.fog.near ?? 10, def.fog.far ?? 60);
+      this.scene.background = c;
+    } else {
+      this.scene.fog = null;
+      this.scene.background = new THREE.Color(0x07090b);
+    }
 
     for (const b of def.brushes) this._addBrush(b);
     this.lights = [];
@@ -161,6 +261,27 @@ export class Game {
         case 'light':
           this._addLight(e);
           break;
+        case 'switch':
+          this.switches.push(new Switch(this, e));
+          break;
+        case 'laser':
+          this.lasers.push(new LaserEmitter(this, e));
+          break;
+        case 'catcher':
+          this.catchers.push(new Catcher(this, e));
+          break;
+        case 'bridge':
+          this.bridges.push(new Bridge(this, e));
+          break;
+        case 'launcher':
+          this.launchers.push(new Launcher(this, e));
+          break;
+        case 'platform':
+          this.platforms.push(new Platform(this, e));
+          break;
+        case 'fizzler':
+          this.fizzlers.push(new Fizzler(this, e));
+          break;
         default:
           break;
       }
@@ -169,18 +290,25 @@ export class Game {
     // 物理世界需要先跑一次查询结构，固定传送门才能找到它贴着的墙
     this.world.step();
     this.portals.reset();
-    for (const e of def.entities ?? []) if (e.type === 'portal') this.portals.placeFixed(e);
+    for (const e of def.entities ?? []) {
+      if (e.type === 'portal') this.portals.placeFixed(e);
+      if (e.type === 'gateway') this.gateDefs.push({ def: e, pair: this.portals.addGateway(e) });
+    }
     const sp = def.spawn ?? { pos: [0, 0, 0], yaw: 0 };
-    this.player.spawn(sp.pos, sp.yaw ?? 0);
+    this.player.spawn(sp.pos, sp.yaw ?? 0, sp.scale ?? 1);
+    this.player.burn = 0;
     this.gunView.setColor(def.gun === 'orange' ? 'orange' : 'blue');
     this.renderer.shadowMap.needsUpdate = true;
     this.time = 0;
+    this._updateSignals();
+    this._updateGates();
+    for (const b of this.bridges) b.update();
     this.emit('level', def, index);
   }
 
   _addBrush(b) {
     const mat = this.materials[b.mat] ?? this.materials.metal;
-    const mesh = new THREE.Mesh(brushGeometry(b.size, b.pos), mat);
+    const mesh = new THREE.Mesh(brushGeometry(b.size, b.pos, TEX_SCALE[b.mat] ?? 2), mat);
     mesh.position.set(...b.pos);
     const transparent = b.mat === 'glass' || b.mat === 'grate';
     mesh.castShadow = b.mat !== 'glass';
@@ -188,11 +316,11 @@ export class Game {
     if (b.mat === 'glass') mesh.renderOrder = 2;
     this.levelGroup.add(mesh);
     const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(...b.pos));
-    const col = this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(b.size[0] / 2, b.size[1] / 2, b.size[2] / 2).setCollisionGroups(GROUPS.world).setFriction(0.8),
-      body
-    );
-    this.colliderInfo.set(col.handle, { kind: 'brush', def: b, mat: b.mat, portalable: PORTALABLE.has(b.mat) });
+    const desc = RAPIER.ColliderDesc.cuboid(b.size[0] / 2, b.size[1] / 2, b.size[2] / 2).setCollisionGroups(GROUPS.world).setFriction(0.8);
+    if (b.mat === 'bounce') desc.setRestitution(0.95).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max);
+    if (b.mat === 'speed') desc.setFriction(0.05).setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min);
+    const col = this.world.createCollider(desc, body);
+    this.colliderInfo.set(col.handle, { kind: 'brush', def: b, mat: b.mat, portalable: PORTALABLE.has(b.mat), portalSize: PORTALABLE.get(b.mat) });
   }
 
   _addLight(e) {
@@ -226,17 +354,15 @@ export class Game {
   unloadLevel() {
     if (this.player.held) this.dropHeld();
     this.effects.clear();
+    this.beams.clear();
+    for (const b of this.bridges) b.clear();
     for (const c of [...this.levelGroup.children]) {
       this.levelGroup.remove(c);
       c.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
       });
     }
-    this.cubes = [];
-    this.buttons = [];
-    this.doors = [];
-    this.exits = [];
-    this.hazards = [];
+    this._clearLists();
     this.colliderInfo.clear();
     this.portals.reset();
     if (this.world) {
@@ -252,6 +378,13 @@ export class Game {
     this.state = 'playing';
   }
 
+  _updateGates() {
+    for (const g of this.gateDefs) {
+      const on = this.cond(g.def.when, true);
+      for (const p of g.pair) if (p.active !== on) p.setActive(on);
+    }
+  }
+
   // ---------------------------------------------------------------- 射线（可穿过传送门）
 
   /**
@@ -262,9 +395,10 @@ export class Game {
     const o = origin.clone();
     const d = dir.clone().normalize();
     let remaining = maxDist;
+    let travelled = 0;
     const via = [];
     const segments = [];
-    for (let depth = 0; depth < 4; depth++) {
+    for (let depth = 0; depth < 6; depth++) {
       _ray.origin = { x: o.x, y: o.y, z: o.z };
       _ray.dir = { x: d.x, y: d.y, z: d.z };
       const hit = this.world.castRayAndGetNormal(_ray, remaining, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined, undefined, undefined, predicate);
@@ -278,7 +412,7 @@ export class Game {
         if (t < 0 || t > hitT + 0.05) continue;
         _v.copy(o).addScaledVector(d, t);
         P.toLocal(_v, _local);
-        if (Portal.inEllipse(_local, 0.97) && (!best || t < best.t)) best = { P, t };
+        if (P.contains(_local, 0.97) && (!best || t < best.t)) best = { P, t };
       }
       if (best) {
         const end = o.clone().addScaledVector(d, best.t);
@@ -286,13 +420,14 @@ export class Game {
         o.copy(end).applyMatrix4(best.P.teleport);
         d.applyQuaternion(best.P.teleportQ);
         o.addScaledVector(d, 0.005);
-        remaining -= best.t;
+        travelled += best.t;
+        remaining = (remaining - best.t) * best.P.teleportScale;
         via.push(best.P);
         continue;
       }
       const end = o.clone().addScaledVector(d, hitT);
       segments.push([o.clone(), end]);
-      if (!hit) return { hit: false, via, dir: d, point: end, segments, distance: maxDist - remaining + hitT };
+      if (!hit) return { hit: false, via, dir: d, point: end, segments, distance: travelled + hitT };
       return {
         hit: true,
         collider: hit.collider,
@@ -301,7 +436,7 @@ export class Game {
         via,
         dir: d,
         segments,
-        distance: maxDist - remaining + hitT,
+        distance: travelled + hitT,
       };
     }
     return { hit: false, via, dir: d, point: o, segments, distance: maxDist };
@@ -328,10 +463,10 @@ export class Game {
     }
     const eye = this.player.eye(new THREE.Vector3());
     const fwd = this.player.forward(new THREE.Vector3());
-    const res = this.raycast(eye, fwd, 200, (col) => {
+    const res = this.raycast(eye, fwd, 300, (col) => {
       const info = this.colliderInfo.get(col.handle);
       if (!info) return true;
-      if (info.kind === 'player') return false;
+      if (info.kind === 'player' || info.kind === 'bridge') return false;
       if (info.kind === 'brush' && info.mat === 'grate') return false; // 子弹穿过栅格
       return true;
     });
@@ -358,21 +493,23 @@ export class Game {
 
   _muzzle() {
     const cam = this.player.camera;
-    return new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld);
+    const s = this.player.scale;
+    return new THREE.Vector3(0.2 * s, -0.17 * s, -0.7 * s).applyMatrix4(cam.matrixWorld);
   }
 
   onPortalMoved(portal, old) {
     // 门被挪走时，正在穿门的物体可能卡在墙里，把它们推回原来那面墙的正面
-    const fix = (pos) => {
+    const reach = Math.max(1.4, (old.hh ?? 1.12) * 1.25);
+    const fix = (pos, margin) => {
       const d = _d.copy(pos).sub(old.pos).dot(old.n);
-      if (d < 0.32 && d > -2.2) {
+      if (d < margin && d > -2.2 * Math.max(1, reach / 1.4)) {
         _v.copy(pos).sub(old.pos).addScaledVector(old.n, -d);
-        if (_v.length() < 1.4) return 0.33 - d;
+        if (_v.length() < reach) return margin + 0.01 - d;
       }
       return 0;
     };
     const p = this.player;
-    const push = fix(p.position);
+    const push = fix(p.position, p.radius + 0.02);
     if (push > 0) {
       p.position.addScaledVector(old.n, push);
       p._syncBody(true);
@@ -380,7 +517,7 @@ export class Game {
     }
     for (const c of this.cubes) {
       const pos = c.position.clone();
-      const k = fix(pos);
+      const k = fix(pos, c.half + 0.02);
       if (k > 0) {
         pos.addScaledVector(old.n, k);
         c.body.setTranslation(pos, true);
@@ -390,7 +527,7 @@ export class Game {
     if (p.held && p.held.link) this.dropHeld();
   }
 
-  // ---------------------------------------------------------------- 搬方块
+  // ---------------------------------------------------------------- 搬方块 / 按开关
 
   use() {
     if (this.player.held) {
@@ -399,10 +536,21 @@ export class Game {
     }
     const eye = this.player.eye(new THREE.Vector3());
     const fwd = this.player.forward(new THREE.Vector3());
-    const res = this.raycast(eye, fwd, 2.6, (col) => this.colliderInfo.get(col.handle)?.kind !== 'player');
+    const reach = 2.6 * Math.max(0.6, this.player.scale);
+    const res = this.raycast(eye, fwd, reach, (col) => {
+      const k = this.colliderInfo.get(col.handle)?.kind;
+      return k !== 'player' && k !== 'bridge';
+    });
     const info = res.hit ? this.colliderInfo.get(res.collider.handle) : null;
     if (info?.kind === 'cube' && res.via.length <= 1) {
+      if (info.cube.scale > this.player.scale * 1.6) {
+        this.audio.play('deny');
+        this.emit('toast', '太重了，搬不动');
+        return;
+      }
       this.pickUp(info.cube, res.via[0] ?? null);
+    } else if (info?.kind === 'switch') {
+      info.sw.activate();
     } else {
       this.audio.play('deny');
     }
@@ -424,7 +572,9 @@ export class Game {
     h.cube.body.setGravityScale(1, true);
     const v = h.cube.body.linvel();
     const s = Math.hypot(v.x, v.y, v.z);
-    if (s > 8) h.cube.body.setLinvel({ x: (v.x / s) * 8, y: (v.y / s) * 8, z: (v.z / s) * 8 }, true);
+    const max = 8 * h.cube.scale;
+    if (s > max) h.cube.body.setLinvel({ x: (v.x / s) * max, y: (v.y / s) * max, z: (v.z / s) * max }, true);
+    h.cube.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     this.player.held = null;
     this.gunView.holding = false;
     this.audio.play('drop');
@@ -434,31 +584,39 @@ export class Game {
   _updateHeld() {
     const h = this.player.held;
     const cube = h.cube;
+    const s = this.player.scale;
     const eye = this.player.eye(new THREE.Vector3());
     const fwd = this.player.forward(new THREE.Vector3());
-    const want = 1.7;
-    const res = this.raycast(eye, fwd, want + 0.4, (col) => {
+    const want = 1.1 * s + cube.half * 2;
+    const res = this.raycast(eye, fwd, want + 0.4 * s, (col) => {
       const info = this.colliderInfo.get(col.handle);
-      return !info || (info.kind !== 'player' && info.kind !== 'cube');
+      return !info || (info.kind !== 'player' && info.kind !== 'cube' && info.kind !== 'bridge');
     });
-    const dist = res.hit ? Math.max(0.7, Math.min(want, res.distance - 0.4)) : want;
+    const dist = res.hit ? Math.max(0.5 * s + cube.half, Math.min(want, res.distance - cube.half - 0.1 * s)) : want;
     const tp = _v.copy(eye).addScaledVector(fwd, dist);
-    const cp = _v2.copy(cube.position);
-    if (h.link) cp.applyMatrix4(h.link.other.teleport); // 方块在门那边：换算到玩家这边
-    const delta = _d.subVectors(tp, cp);
+    let k = 1;
+    if (h.link) {
+      // 方块在门那边：把目标点换算到方块所在的空间
+      tp.applyMatrix4(h.link.teleport);
+      k = h.link.teleportScale;
+    }
+    const delta = _d.subVectors(tp, cube.position);
     // 方块被卡住、离手太远一段时间才松手；快速转身时它会跟着甩过来
-    const far = delta.length();
-    h.farTime = far > 2.2 ? (h.farTime ?? 0) + this._h : 0;
-    if (far > 4 || h.farTime > 0.6) {
+    const far = delta.length() / k;
+    h.farTime = far > 2.2 * s ? (h.farTime ?? 0) + this._h : 0;
+    if (far > 4 * s || h.farTime > 0.6) {
       this.dropHeld();
       return;
     }
     const vel = delta.multiplyScalar(14);
-    if (vel.length() > 14) vel.setLength(14);
-    if (h.link) vel.applyQuaternion(h.link.teleportQ);
+    const max = 14 * Math.max(1, s) * k;
+    if (vel.length() > max) vel.setLength(max);
     cube.body.setLinvel(vel, true);
-    const av = cube.body.angvel();
-    cube.body.setAngvel({ x: av.x * 0.8, y: av.y * 0.8, z: av.z * 0.8 }, true);
+    // 拿着的方块始终端正地朝着玩家的视线方向（折射方块靠这个来瞄准）
+    _yawQ.setFromAxisAngle(_Y, this.player.yaw);
+    if (h.link) _yawQ.premultiply(h.link.teleportQ);
+    cube.body.setRotation(_yawQ, true);
+    cube.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   }
 
   onCubeTeleported(cube, P) {
@@ -474,11 +632,94 @@ export class Game {
     if (speed > 3) this.audio.play('land', speed);
   }
 
+  // ---------------------------------------------------------------- 激光
+
+  _traceLasers(h) {
+    for (const c of this.catchers) c.hit = false;
+    this.beams.begin();
+    let burned = false;
+    let lastHit = null;
+    const pred = (col) => {
+      const info = this.colliderInfo.get(col.handle);
+      if (!info) return true;
+      if (info.kind === 'bridge') return false;
+      if (info.kind === 'brush' && (info.mat === 'glass' || info.mat === 'grate')) return false; // 激光穿过玻璃和栅格
+      return true;
+    };
+    for (const L of this.lasers) {
+      L.lensMat.emissiveIntensity = L.active ? 2.5 : 0.2;
+      if (!L.active) continue;
+      const o = L.pos.clone();
+      const d = L.dir.clone();
+      let scale = 1;
+      const visited = new Set();
+      for (let bounce = 0; bounce < 8; bounce++) {
+        const res = this.raycast(o, d, 200, pred);
+        res.segments.forEach(([a, b], i) => {
+          this.beams.add(a, b, scale * (i === 0 ? 1 : res.via.slice(0, i).reduce((k, P) => k * P.teleportScale, 1)));
+        });
+        for (const P of res.via) scale *= P.teleportScale;
+        if (!res.hit) break;
+        lastHit = res.point;
+        const info = this.colliderInfo.get(res.collider.handle);
+        if (info?.kind === 'player') {
+          burned = true;
+          // 激光像一堵烫手的墙：把人往垂直于光束的方向推开
+          const [a, b] = res.segments[res.segments.length - 1];
+          const ab = b.clone().sub(a).normalize();
+          const away = this.player.position.clone().sub(a);
+          away.addScaledVector(ab, -away.dot(ab)).setY(0);
+          if (away.lengthSq() < 1e-6) away.set(-ab.z, 0, ab.x);
+          away.normalize();
+          const v = this.player.velocity;
+          const vn = v.x * away.x + v.z * away.z;
+          const push = 4.5 * Math.sqrt(this.player.scale);
+          if (vn < push) {
+            v.x += away.x * (push - vn);
+            v.z += away.z * (push - vn);
+          }
+          break;
+        }
+        if (info?.kind === 'cube' && info.cube.kind === 'prism' && !visited.has(info.cube)) {
+          const cube = info.cube;
+          visited.add(cube);
+          const c = cube.position.clone();
+          this.beams.add(res.point, c, scale);
+          d.copy(cube.forward(new THREE.Vector3()));
+          o.copy(c).addScaledVector(d, cube.half * 1.05);
+          this.beams.add(c, o.clone(), scale);
+          scale = cube.scale;
+          continue;
+        }
+        if (info?.kind === 'catcher') info.catcher.hit = true;
+        break;
+      }
+    }
+    this.beams.end(lastHit);
+    for (const c of this.catchers) c.update(h);
+    const p = this.player;
+    if (burned) {
+      p.burn = (p.burn ?? 0) + h;
+      if (!this._burnSfx || this.time - this._burnSfx > 0.25) {
+        this._burnSfx = this.time;
+        this.audio.play('burn');
+      }
+      this.emit('burn', Math.min(1, p.burn / 0.45));
+      if (p.burn > 0.45) this.die();
+    } else if (p.burn > 0) {
+      p.burn = Math.max(0, p.burn - h * 2);
+      this.emit('burn', Math.min(1, p.burn / 0.45));
+    }
+  }
+
   // ---------------------------------------------------------------- 主循环
 
   simulate(h) {
     this._h = h;
     const p = this.player;
+    this._updateSignals();
+    this._updateGates();
+    for (const pl of this.platforms) pl.step(h);
     p.step(h, this.input, this.portals.list);
     if (p.held) this._updateHeld();
     this.portals.prepareCubes(this.cubes);
@@ -487,18 +728,38 @@ export class Game {
     this.eventQueue.clear();
     this.portals.teleportCubes(this.cubes);
     const went = p.checkPortals(this.portals.list);
-    if (went) this.audio.play('teleport');
+    if (went) this.audio.play(Math.abs(went.teleportScale - 1) > 0.01 ? (went.teleportScale > 1 ? 'grow' : 'shrink') : 'teleport');
 
     for (const b of this.buttons) b.update(h, this.cubes, p);
-    for (const d of this.doors) d.update(h, this.buttons);
+    for (const sw of this.switches) sw.update(h);
+    if (this.lasers.length) this._traceLasers(h);
+    if (this.state !== 'playing') return;
+    for (const b of this.bridges) b.update();
+    for (const l of this.launchers) l.update(h, p, this.cubes);
+    this._updateSignals();
+    for (const d of this.doors) d.update(h);
 
     const eye = p.eye(_v);
+    for (const f of this.fizzlers) {
+      if (!f.active) {
+        f.inside = false;
+        continue;
+      }
+      const inside = f.touches(p.position, p.radius) || f.touches(eye, 0.05);
+      if (inside && !f.inside && this.portals.clearPlayerPortals()) {
+        this.audio.play('fizzle');
+        this.emit('portals');
+      }
+      f.inside = inside;
+      for (const c of this.cubes) if (f.touches(c.position, c.half * 0.8)) this._fizzle(c);
+    }
     for (const hz of this.hazards) {
       if (hz.contains(eye) || hz.contains(p.position)) return this.die();
       for (const c of this.cubes) if (hz.contains(c.position)) this._fizzle(c);
     }
-    for (const c of this.cubes) if (c.position.y < -40) this._fizzle(c);
-    if (p.position.y < -40) return this.die();
+    const killY = this.level.killY ?? -40;
+    for (const c of this.cubes) if (c.position.y < killY) this._fizzle(c);
+    if (p.position.y < killY) return this.die();
     for (const ex of this.exits) if (ex.contains(p.position)) return this.complete();
   }
 
@@ -563,15 +824,19 @@ export class Game {
 
   render(dt, lookDX = 0, lookDY = 0) {
     const p = this.player;
+    const now = performance.now() / 1000;
     p.updateCamera();
     for (const c of this.cubes) c.sync();
+    for (const pl of this.platforms) pl.sync();
     this.portals.updateClones(this.cubes);
-    this.portals.update(dt, performance.now() / 1000);
-    for (const ex of this.exits) ex.update(performance.now() / 1000);
+    this.portals.update(dt, now);
+    for (const ex of this.exits) ex.update(now);
+    for (const f of this.fizzlers) f.update(now);
+    if (this.bridges.length) this.bridges[0].material.uniforms.time.value = now;
     const acid = this.materials.acid.normalMap;
     if (acid) acid.offset.set(this.time * 0.02, this.time * 0.013);
     this.effects.update(dt);
-    const sp = Math.hypot(p.velocity.x, p.velocity.z);
+    const sp = Math.hypot(p.velocity.x, p.velocity.z) / Math.sqrt(p.scale);
     this.gunView.update(dt, sp, p.grounded, lookDX, lookDY);
 
     if (this.shadows) this.renderer.shadowMap.needsUpdate = true;
@@ -606,6 +871,7 @@ export class Game {
       this.player.updateRoll(h);
       this.player.updateCamera();
       for (const c of this.cubes) c.sync();
+      this.time += h;
     }
     this.input.scripted = null;
     return this.state;
@@ -617,13 +883,15 @@ export class Game {
       state: this.state,
       pos: p.position.toArray().map((v) => +v.toFixed(3)),
       vel: p.velocity.toArray().map((v) => +v.toFixed(3)),
+      scale: +p.scale.toFixed(3),
       yaw: +THREE.MathUtils.radToDeg(p.yaw).toFixed(1),
       pitch: +THREE.MathUtils.radToDeg(p.pitch).toFixed(1),
       grounded: p.grounded,
       held: !!p.held,
-      portals: this.portals.list.map((q) => (q.placed ? { pos: q.position.toArray().map((v) => +v.toFixed(2)), n: q.normal.toArray() } : null)),
-      cubes: this.cubes.map((c) => c.position.toArray().map((v) => +v.toFixed(2))),
+      portals: [this.portals.blue, this.portals.orange].map((q) => (q.placed ? { pos: q.position.toArray().map((v) => +v.toFixed(2)), n: q.normal.toArray(), size: q.size } : null)),
+      cubes: this.cubes.map((c) => c.position.toArray().map((v) => +v.toFixed(2)).concat([+c.scale.toFixed(2)])),
       buttons: this.buttons.map((b) => b.pressed),
+      signals: Object.fromEntries(this.signals),
       doors: this.doors.map((d) => +d.open.toFixed(2)),
     };
   }

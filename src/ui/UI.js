@@ -351,7 +351,7 @@ export class UI {
     }
     const t = this.game.time;
     el.querySelector('.ctitle').textContent = last ? '全部通关！' : '关卡完成';
-    el.querySelector('.ctext').textContent = this.custom
+    el.querySelector('.ctext').textContent = this.custom || !LEVELS[index]
       ? `自定义关卡完成，用时 ${t.toFixed(1)} 秒。`
       : `「${LEVELS[index].name}」用时 ${t.toFixed(1)} 秒。${last ? '你已经掌握了传送门的全部诀窍。' : ''}`;
     el.querySelector('[data-act="next"]').textContent = this.custom ? '回到编辑器' : last ? '返回主菜单' : '下一关';

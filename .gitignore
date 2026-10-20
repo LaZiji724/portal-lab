@@ -3,3 +3,5 @@ dist/
 playtest-shots/
 *.log
 .DS_Store
+mechtest-shots/
+dist-*/

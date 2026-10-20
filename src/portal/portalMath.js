@@ -4,14 +4,18 @@ import * as THREE from 'three';
 const FLIP = new THREE.Matrix4().makeRotationY(Math.PI);
 const FLIP_Q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
+const _S = new THREE.Matrix4();
+
 /**
- * 计算从门 a 穿越到门 b 的刚体变换：T = Mb · R(π) · Ma⁻¹
- * 位置用 out 矩阵变换，方向（速度、朝向）只用旋转部分 outQ。
+ * 计算从门 a 穿越到门 b 的变换：T = Mb · S(k) · R(π) · Ma⁻¹，k = 两扇门的大小之比。
+ * 位置用 out 矩阵变换，方向（速度、朝向）只用旋转部分 outQ，返回缩放倍率 k。
  */
 export function computeTeleport(a, b, out, outQ) {
-  out.multiplyMatrices(b.matrix, FLIP).multiply(a.matrixInv);
+  const k = (b.halfH ?? 1) / (a.halfH ?? 1);
+  _S.makeScale(k, k, k);
+  out.multiplyMatrices(b.matrix, _S).multiply(FLIP).multiply(a.matrixInv);
   outQ.copy(b.quaternion).multiply(FLIP_Q).multiply(a.quaternionInv);
-  return out;
+  return k;
 }
 
 const _plane = new THREE.Plane();

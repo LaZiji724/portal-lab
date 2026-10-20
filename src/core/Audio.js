@@ -199,6 +199,49 @@ export class AudioManager {
       case 'complete':
         [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this._osc('triangle', f, f, 0.5, 0.12, t + i * 0.11, 0.01));
         break;
+      case 'grow':
+        this._noise('bandpass', 200, 1400, 3, 0.4, 0.2, t, 0.02);
+        this._osc('sine', 110, 55, 0.45, 0.14);
+        break;
+      case 'shrink':
+        this._noise('bandpass', 1400, 4000, 3, 0.3, 0.18, t, 0.02);
+        this._osc('sine', 600, 1400, 0.3, 0.08);
+        break;
+      case 'bounce':
+        this._osc('sine', 180, 520, 0.22, 0.16);
+        this._noise('bandpass', 500, 1500, 3, 0.12, 0.08);
+        break;
+      case 'switch':
+        this._noise('bandpass', 2500, 1200, 2, 0.05, 0.2);
+        this._osc('square', 880, 880, 0.06, 0.05, t + 0.02);
+        break;
+      case 'switchOff':
+        this._osc('square', 660, 330, 0.18, 0.06);
+        break;
+      case 'tick':
+        this._osc('square', 1500, 1500, 0.025, 0.04);
+        break;
+      case 'catcherOn':
+        this._osc('sine', 330, 660, 0.3, 0.12, t, 0.03);
+        this._osc('sine', 495, 990, 0.3, 0.06, t + 0.05, 0.03);
+        break;
+      case 'catcherOff':
+        this._osc('sine', 500, 250, 0.25, 0.08);
+        break;
+      case 'bridgeOn':
+        this._noise('bandpass', 300, 2000, 4, 0.5, 0.12, t, 0.05);
+        this._osc('triangle', 220, 440, 0.4, 0.06, t, 0.05);
+        break;
+      case 'bridgeOff':
+        this._noise('bandpass', 2000, 300, 4, 0.4, 0.1, t, 0.02);
+        break;
+      case 'launch':
+        this._noise('lowpass', 300, 2500, 1, 0.25, 0.35, t, 0.01);
+        this._osc('sawtooth', 70, 160, 0.3, 0.12);
+        break;
+      case 'burn':
+        this._noise('highpass', 3000, 5000, 2, 0.15, 0.12);
+        break;
       default:
         break;
     }

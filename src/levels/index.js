@@ -15,9 +15,19 @@ import level13 from './level13.json';
 import level14 from './level14.json';
 import level15 from './level15.json';
 import level16 from './level16.json';
+import level17 from './level17.json';
+import level18 from './level18.json';
+import level19 from './level19.json';
+import level20 from './level20.json';
+import level21 from './level21.json';
+import level22 from './level22.json';
+import level23 from './level23.json';
+import level24 from './level24.json';
+import level25 from './level25.json';
+import level26 from './level26.json';
 
 /** 章节标题（关卡的 chapter 字段是这里的下标） */
-export const CHAPTERS = ["第 1 章 · 基础训练","第 2 章 · 非欧空间","第 3 章 · 放大与缩小"];
+export const CHAPTERS = ["第 1 章 · 基础训练","第 2 章 · 非欧空间","第 3 章 · 放大与缩小","第 4 章 · 光与力","第 5 章 · 综合难关"];
 
 /** 内置关卡，按难度排序 */
-export const LEVELS = [level0, level1, level2, level3, level4, level5, level6, level7, level8, level9, level10, level11, level12, level13, level14, level15, level16];
+export const LEVELS = [level0, level1, level2, level3, level4, level5, level6, level7, level8, level9, level10, level11, level12, level13, level14, level15, level16, level17, level18, level19, level20, level21, level22, level23, level24, level25, level26];

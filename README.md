@@ -1,5 +1,7 @@
 # 传送门实验室 · Portal Lab
 
+在线试玩：https://laziji724.github.io/portal-lab/
+
 一个在浏览器里玩的第一人称 3D 物理解谜游戏。手持传送门枪，在白色面板上开出蓝、橙两扇门，人、方块和速度都能丝滑穿过，靠合理摆放传送门通过 7 个关卡。自带关卡编辑器，支持电脑和手机。
 
 ## 快速开始
@@ -11,7 +13,7 @@ npm run build    # 打包到 dist/
 npm run preview  # 预览打包结果
 ```
 
-推送到 GitHub 的 `main` 分支后，`.github/workflows/pages.yml` 会自动部署到 GitHub Pages（需要在仓库 Settings → Pages 里把 Source 选成 GitHub Actions）。
+推送到 GitHub 的 `main` 分支后，`.github/workflows/pages.yml` 会自动构建并把结果推到 `gh-pages` 分支，GitHub Pages 从这个分支发布（Settings → Pages 的 Source 选 Deploy from a branch，分支 `gh-pages`）。
 
 ## 操作
 

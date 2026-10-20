@@ -414,4 +414,117 @@ const solves = [];
   });
 }
 
+// ---------------------------------------------------------------- 5 凝胶跑酷
+// 三段：① 推进凝胶跑道冲进东墙的门，从南墙高处飞出去，越过酸液池；
+// ② 竖井里只有弹跳凝胶，掉多高就弹多高——从地上的门掉进去、从天花板的门掉下来，借这一摔弹上 9 米高台；
+// ③ 踩着往返的平台过最后一段酸液。
+{
+  const shaftNorth = wallWithHoles('z', [-40.5, -40], [-5.5, 5.5], [0, 18], [[-1.5, 1.5, 9, 12]]);
+  levels.push({
+    name: '凝胶跑酷',
+    hint: '蓝色推进凝胶让你越跑越快，速度穿过传送门不会丢。橙色弹跳凝胶会把你弹回掉下来的高度。',
+    gun: 'both',
+    spawn: { pos: [-20, 0, 2], yaw: -90 },
+    brushes: [
+      // ① 大厅（地面在酸液池底 -6）
+      ...room([-8, 8], [-6, 14], [-26, 4], {}, ['xn', 'zn']),
+      box(-8.5, -6, -26.5, -8, 14, 0), // 西墙（北段）
+      box(-8.5, 6, 0, -8, 14, 4.5), // 西墙（跑道入口上方）
+      box(-8.5, -6, 0, -8, 0, 4.5),
+      ...wallWithHoles('z', [-26.5, -26], [-8.5, 8.5], [-6, 14], [[-1.5, 1.5, 0, 3]]),
+      box(-8, -6, 0, 8, 0, 4, 'concrete'), // 近岸
+      box(-8, -6, -26, 8, 0, -12, 'concrete'), // 对岸
+      // 跑道走廊
+      ...room([-22, -8], [0, 6], [0, 4], {}, ['xp']),
+      box(-21.6, 0, 0.6, 8, 0.03, 3.4, 'speed'),
+      slotX(8, -1, 2, 1.15), // 跑道尽头
+      slotZ(4, -1, 0, 9.15), // 南墙高处
+      // ② 竖井
+      ...room([-5, 5], [0, 18], [-40, -26.5], {}, ['zp', 'zn']),
+      ...shaftNorth,
+      box(-5.5, 14, -26.5, 5.5, 18.5, -26),
+      box(-5, 0, -40, 5, 9, -36, 'concrete'), // 高台
+      box(-2, 0, -36, 2, 0.05, -32.4, 'bounce'),
+      panelY(0, 1, [-4.6, -3.2], [-31.5, -29]),
+      panelY(18, -1, [-1.3, 1.3], [-35.6, -33]),
+      // ③ 往返平台
+      ...room([-3, 3], [3, 15], [-60, -40.5], {}, ['zp']),
+      box(-3.5, 12, -40.5, 3.5, 15.5, -40),
+      box(-3, 3, -44, 3, 9, -40.5, 'concrete'),
+      box(-3, 3, -60, 3, 9, -56, 'concrete'),
+    ],
+    entities: [
+      { type: 'hazard', pos: [0, -5.5, -6], size: [16, 1, 12] },
+      { type: 'hazard', pos: [0, 3.5, -50], size: [6, 1, 12] },
+      { type: 'platform', pos: [0, 8.8, -45.6], to: [0, 8.8, -54.4], size: [2.8, 0.4, 2.8], period: 8 },
+      exit(0, 9, -58.2, [2.4, 2.5, 2.4]),
+      light(-15, 5.85, 2, 25, { shadow: true }),
+      light(0, 13.85, 0, 45, { shadow: true }),
+      light(0, 13.85, -18, 45, { shadow: true }),
+      light(0, -4, -6, 14, { color: 0x7dff6a, fixture: false, distance: 16 }),
+      light(0, 17.85, -31, 40, { shadow: true }),
+      light(0, 14.85, -50, 30, { shadow: true }),
+      light(0, 6, -50, 8, { color: 0x7dff6a, fixture: false, distance: 10 }),
+    ],
+  });
+  solves.push(async ({ ev, shot }) => {
+    await ev(() => window.__pt.run(0.5));
+    await shot('c4-5-start');
+    await ev(() => window.__pt.fire('blue', [8, 1.15, 2]));
+    await ev(() => {
+      const pt = window.__pt;
+      pt.walkTo(-2, 1, 8, 0.3);
+      pt.fire('orange', [0, 9.15, 4]);
+      pt.walkTo(-20.5, 2, 10, 0.3);
+    });
+    // ① 沿着推进凝胶一路冲刺
+    await ev(() => {
+      const pt = window.__pt;
+      const g = window.__game;
+      pt.walkDir(-90, 8, () => g.player.position.y > 4);
+      for (let i = 0; i < 240 && !g.player.grounded; i++) g.debugRun(1 / 60);
+      pt.run(0.5);
+    });
+    const p1 = await ev(() => window.__pt.state());
+    if (p1.pos[2] > -12.5 || p1.state !== 'playing') throw new Error('没飞过酸液池：' + JSON.stringify(p1));
+    await shot('c4-5-landed');
+    // ② 进竖井，地上和天花板各开一扇门
+    await ev(() => {
+      const pt = window.__pt;
+      pt.walkTo(0, -24, 8, 0.3);
+      pt.walkTo(1.5, -29, 4, 0.3);
+      pt.fire('blue', [-3.9, 0, -30.25]);
+      pt.fire('orange', [0, 18, -34.3]);
+    });
+    await shot('c4-5-shaft');
+    await ev(() => {
+      const pt = window.__pt;
+      const g = window.__game;
+      pt.walkTo(-3.9, -27.6, 4, 0.15);
+      pt.walkDir(180, 3, () => g.player.position.y > 10);
+      // 掉下来、弹起来的途中一直往北飘
+      for (let i = 0; i < 400; i++) {
+        g.player.yaw = 0;
+        g.debugRun(1 / 60, { x: 0, y: 1 });
+        if (g.player.grounded && g.player.position.y > 9.5) break;
+      }
+      pt.run(0.3);
+    });
+    const p2 = await ev(() => window.__pt.state());
+    if (p2.pos[1] < 9.5) throw new Error('没弹上高台：' + JSON.stringify(p2));
+    await shot('c4-5-ledge');
+    // ③ 等平台靠岸再踩上去
+    await ev(() => {
+      const pt = window.__pt;
+      const g = window.__game;
+      pt.walkTo(0, -43, 4, 0.2);
+      const pl = g.platforms[0];
+      for (let i = 0; i < 900 && !(pl.u < 0.01 && pl.delta.lengthSq() < 1e-8); i++) g.debugRun(1 / 60);
+      pt.walkTo(0, -45.6, 2, 0.2);
+      for (let i = 0; i < 900 && pl.u < 0.999; i++) g.debugRun(1 / 60);
+      pt.walkTo(0, -58, 4);
+    });
+  });
+}
+
 export default levels.map((def, i) => ({ def, solve: solves[i] }));

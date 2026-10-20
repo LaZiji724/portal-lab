@@ -453,7 +453,8 @@ export class Launcher {
     const top = this.pos.y + 0.17;
     const p = player.position;
     const feet = p.y - player.footOffset;
-    if (player.grounded && Math.hypot(p.x - this.pos.x, p.z - this.pos.z) < 0.95 && Math.abs(feet - top) < 0.3) {
+    // 要真正站到弹射板上才弹（还在跨上台阶的那一帧就弹，会被板边挡掉水平速度）
+    if (player.grounded && player.ground?.kind === 'launcher' && Math.hypot(p.x - this.pos.x, p.z - this.pos.z) < 0.95 && Math.abs(feet - top) < 0.3) {
       const from = new THREE.Vector3(p.x, feet, p.z);
       const v = this.velocity(from, this.target, new THREE.Vector3());
       player.launch(v);

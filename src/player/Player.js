@@ -160,6 +160,7 @@ export class Player {
   spawn(pos, yawDeg = 0, scale = 1) {
     this.setScale(scale);
     this.frame.identity();
+    this.up.set(0, 1, 0); // frame 重置了，up 也要跟着回正；否则倒着通关/死在天花板上之后，下一次出生会陷进地里
     this.game.gravityAt?.(_v.set(pos[0], pos[1], pos[2]), _g);
     this._alignFrame(0, true, _g.dir);
     this.gMul = _g.mag;

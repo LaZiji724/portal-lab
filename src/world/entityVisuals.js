@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { glowTexture } from './ambience.js';
 import { getMaterials } from './materials.js';
 import { PORTAL_COLORS } from '../portal/Portal.js';
 
@@ -380,7 +381,7 @@ function makeLabel(text, color) {
 
 export function createExitMesh(size) {
   const group = new THREE.Group();
-  const glow = new THREE.MeshStandardMaterial({ color: 0x0a2a10, emissive: 0x40ff80, emissiveIntensity: 1.6 });
+  const glow = new THREE.MeshStandardMaterial({ color: 0x0a2a10, emissive: 0x40ff80, emissiveIntensity: 3.2 });
   const w = size[0];
   const d = size[2];
   const h = size[1];
@@ -438,17 +439,33 @@ export function createHazardMesh(size) {
 export function createLightFixture(def) {
   const group = new THREE.Group();
   const color = new THREE.Color(def.color ?? 0xfff2e0);
+  // 灯面：高亮自发光，经过泛光会有柔和的光晕
   const panel = new THREE.Mesh(
-    new THREE.BoxGeometry(1.4, 0.06, 0.5),
-    new THREE.MeshStandardMaterial({ color: 0x111111, emissive: color, emissiveIntensity: 2.2 })
+    new THREE.BoxGeometry(1.4, 0.05, 0.5),
+    new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(3.2) })
   );
+  panel.position.y = -0.01;
   group.add(panel);
-  const housing = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, 0.08, 0.6),
-    new THREE.MeshStandardMaterial({ color: 0x2a2c2e, metalness: 0.7, roughness: 0.5 })
-  );
-  housing.position.y = 0.05;
+  const frame = new THREE.MeshStandardMaterial({ color: 0x2b2f35, metalness: 0.8, roughness: 0.35 });
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.1, 0.66), frame);
+  housing.position.y = 0.06;
   group.add(housing);
+  for (const sx of [-1, 1]) {
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.66), frame);
+    rim.position.set(sx * 0.75, 0.0, 0);
+    group.add(rim);
+  }
+  for (const sz of [-1, 1]) {
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.07, 0.06), frame);
+    rim.position.set(0, 0.0, sz * 0.3);
+    group.add(rim);
+  }
+  const halo = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: glowTexture(), color, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  halo.scale.set(3.6, 3.6, 1);
+  halo.position.y = -0.35;
+  group.add(halo);
   return group;
 }
 

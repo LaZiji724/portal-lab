@@ -73,3 +73,12 @@ src/
 tools/                  关卡生成脚本、自动试玩脚本
 tests/                  单元测试
 ```
+
+## 画面与素材致谢
+
+墙面、地面、金属板的质感来自 [ambientCG](https://ambientcg.com)（CC0 公共领域）的照片级 PBR 材质
+（Plastic010/011/006、Terrazzo004、Tiles052、Concrete016、MetalPlates015A），
+由 `tools/bake_textures.py` 加工成小体积的 webp 贴图放在 `public/tex/`（板缝、倒角、螺丝是脚本叠上去的）。
+每一章有自己的配色主题（`src/world/theme.js`），画面带泛光后期、灯下光柱、飘浮尘埃，
+踢脚线、灯带、天花横梁与管线由 `src/world/dressing.js` 根据关卡几何自动生成（只有外观，没有碰撞）。
+手机和低配设备会自动关掉后期效果。

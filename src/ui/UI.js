@@ -221,9 +221,10 @@ export class UI {
       }
       const t = document.createElement('button');
       t.className = 'level-tile';
-      t.disabled = i > this.progress.unlocked;
+      // 所有关卡默认开放，不用按顺序通关
+      t.disabled = false;
       t.innerHTML = `<span class="num">第 ${i + 1} 关</span><span class="name">${lv.name}</span>${
-        this.progress.done.includes(i) ? '<span class="done">✓ 已通过</span>' : t.disabled ? '<span class="num">🔒 未解锁</span>' : ''
+        this.progress.done.includes(i) ? '<span class="done">✓ 已通过</span>' : ''
       }`;
       t.addEventListener('click', () => {
         this.game.audio.unlock();

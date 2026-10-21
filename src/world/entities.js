@@ -617,9 +617,9 @@ export class Hazard extends Volume {
   constructor(game, def) {
     super(def);
     const size = def.size ?? [4, 1, 4];
-    this.group = createHazardMesh(size, !!def.pool);
+    this.group = def.hidden ? new THREE.Group() : createHazardMesh(size, !!def.pool);
     // 贴在侧墙或天花板上的酸液：液面朝向 up（碰撞范围仍是 pos/size 这个方块）
-    if (def.up) {
+    if (def.up && !def.hidden) {
       const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...def.up).normalize());
       const ls = new THREE.Vector3(...size).applyQuaternion(q.clone().invert());
       this.group = createHazardMesh([Math.abs(ls.x), Math.abs(ls.y), Math.abs(ls.z)], !!def.pool);

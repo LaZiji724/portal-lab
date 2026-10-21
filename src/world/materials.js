@@ -312,6 +312,29 @@ function gel(size, aniso, color, emissive, seed) {
 
 let cache = null;
 
+
+/** 草地：两层噪声混出深浅，再撒一层细碎的草尖 */
+function grass(size, aniso) {
+  const n1 = makeNoise(size, 31, 6, 4);
+  const n2 = makeNoise(size, 77, 3, 32);
+  const rand = rng(1234);
+  const canvas = canvasFrom(size, (d) => {
+    for (let i = 0; i < size * size; i++) {
+      const t = Math.min(1, Math.max(0, (n1[i] - 0.3) * 2.2));
+      const f = 0.8 + n2[i] * 0.45 + (rand() - 0.5) * 0.18;
+      d[i * 4] = (62 + 66 * t) * f;
+      d[i * 4 + 1] = (118 + 72 * t) * f;
+      d[i * 4 + 2] = (42 + 36 * t) * f;
+      d[i * 4 + 3] = 255;
+    }
+  });
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = aniso;
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.96, metalness: 0 });
+}
+
 /** 材质库。brush 的 mat 字段见 BRUSH_MATERIALS */
 let aniso = 4;
 export function getMaterials(quality = 'high', anisotropy = 4) {
@@ -335,6 +358,8 @@ export function getMaterials(quality = 'high', anisotropy = 4) {
     glass: glass(),
     grate: grate(size, anisotropy),
     acid: acid(size, anisotropy),
+    glow: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    grass: grass(256, anisotropy),
     bounce: gel(size, anisotropy, 0x1a7dff, 0x0a3cff, 131),
     speed: gel(size, anisotropy, 0xff7a10, 0xff4a00, 151),
   };
@@ -442,7 +467,7 @@ export function setFloor(m, name) {
   });
 }
 
-export const BRUSH_MATERIALS = ['white', 'whiteS', 'whiteL', 'metal', 'concrete', 'plate', 'glass', 'grate', 'bounce', 'speed'];
+export const BRUSH_MATERIALS = ['white', 'whiteS', 'whiteL', 'metal', 'concrete', 'plate', 'glass', 'grate', 'bounce', 'speed', 'grass', 'glow', 'acid'];
 export const MATERIAL_LABELS = {
   white: '白色面板（可开门）',
   whiteS: '小号面板（开出小门，穿过会缩小）',
@@ -454,6 +479,9 @@ export const MATERIAL_LABELS = {
   grate: '栅格（子弹可穿过）',
   bounce: '弹跳凝胶（蓝）',
   speed: '推进凝胶（橙）',
+  grass: '草地（不可开门）',
+  glow: '自发光（水晶、灯带，配合 color、intensity）',
+  acid: '酸液外观（只有样子，没有致死范围；配合 hazard hidden 使用）',
 };
 /** 可开门的面板，以及在上面开出的门的尺寸倍率 */
 export const PORTALABLE = new Map([
@@ -462,7 +490,7 @@ export const PORTALABLE = new Map([
   ['whiteL', 2.2],
 ]);
 /** 贴图重复周期（米）：小号面板格子小，大号面板格子大 */
-export const TEX_SCALE = { white: 2, whiteS: 0.9, whiteL: 4.4, metal: 2, concrete: 3, plate: 2 };
+export const TEX_SCALE = { white: 2, whiteS: 0.9, whiteL: 4.4, metal: 2, concrete: 3, plate: 2, grass: 5, acid: 4 };
 
 /** 每 2 米重复一次贴图，并按世界坐标展开 UV，相邻墙体的纹理可以无缝衔接 */
 export function brushGeometry(size, pos, texScale = 2, shape = 'box') {

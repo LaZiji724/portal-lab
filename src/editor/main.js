@@ -184,10 +184,22 @@ function buildObject(item) {
     }
     case 'gravity': {
       obj = new THREE.Group();
-      const col = d.color ?? (d.shape === 'sphere' ? 0x6fb8ff : 0x7af0ff);
+      const col = d.color ?? (d.shape === 'sphere' ? 0x6fb8ff : d.shape === 'axis' ? 0xffc86f : d.shape === 'cube' ? 0xc08cff : 0x7af0ff);
       const wire = new THREE.MeshBasicMaterial({ color: col, wireframe: true, transparent: true, opacity: 0.5 });
       if (d.shape === 'sphere') obj.add(new THREE.Mesh(new THREE.SphereGeometry(d.radius ?? 8, 24, 16), wire));
-      else {
+      else if (d.shape === 'axis') {
+        // 圆筒：沿 axis 方向的圆柱，重力背离轴（invert 则朝向轴）
+        const ax = new THREE.Vector3(...(d.axis ?? [0, 0, 1])).normalize();
+        const cyl = new THREE.Mesh(new THREE.CylinderGeometry(d.radius ?? 10, d.radius ?? 10, d.length ?? 40, 28, 1, true), wire);
+        cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ax);
+        obj.add(cyl);
+        obj.add(lineTo(ax.clone().multiplyScalar((d.length ?? 40) / 2).toArray(), 0xffffff));
+      } else if (d.shape === 'cube') {
+        // 魔方场：最近的那面墙就是地面，画出盒子和中央失重核心
+        const sz = d.size ?? [20, 20, 20];
+        obj.add(new THREE.Mesh(new THREE.BoxGeometry(...sz), wire));
+        if (d.core) obj.add(new THREE.Mesh(new THREE.BoxGeometry(...sz.map((v) => v * d.core)), wire));
+      } else {
         const sz = d.size ?? [4, 4, 4];
         obj.add(new THREE.Mesh(new THREE.BoxGeometry(...sz), wire));
         const dir = new THREE.Vector3(...(d.dir ?? [0, 1, 0])).normalize();
@@ -406,7 +418,7 @@ function setMode(mode) {
 }
 
 let scaleStart = null;
-const isSphereField = (it) => it.kind === 'gravity' && it.data.shape === 'sphere';
+const isSphereField = (it) => it.kind === 'gravity' && (it.data.shape === 'sphere' || it.data.shape === 'axis');
 tc.addEventListener('mouseDown', () => {
   if (selected && tc.mode === 'scale') scaleStart = isSphereField(selected) ? [selected.data.radius ?? 8] : [...selected.data.size];
 });
@@ -513,7 +525,13 @@ function add(kind) {
   let created = [];
   if (kind.startsWith('brush:')) {
     const mat = kind.split(':')[1];
-    created.push({ list: 'brushes', data: { pos: [x, y + 1.5, z], size: mat === 'glass' || mat === 'grate' ? [4, 3, 0.2] : [4, 3, 0.5], mat } });
+    if (mat === 'glow') created.push({ list: 'brushes', data: { pos: [x, y + 0.05, z], size: [4, 0.1, 0.3], mat, color: 0x7ae8ff, intensity: 1.5, deco: true } });
+    else if (mat === 'acid') {
+      // 酸液外观只是装饰，再配一个隐藏的致死范围
+      created.push({ list: 'brushes', data: { pos: [x, y + 0.05, z], size: [4, 0.1, 4], mat, color: 0x4f7a56, intensity: 0.2, deco: true } });
+      created.push({ list: 'entities', data: { type: 'hazard', hidden: true, pos: [x, y + 0.6, z], size: [4, 1.2, 4] } });
+    } else if (mat === 'grass') created.push({ list: 'brushes', data: { pos: [x, y - 0.25, z], size: [6, 0.5, 6], mat } });
+    else created.push({ list: 'brushes', data: { pos: [x, y + 1.5, z], size: mat === 'glass' || mat === 'grate' ? [4, 3, 0.2] : [4, 3, 0.5], mat } });
   } else if (kind === 'cyl' || kind === 'sphere') {
     const big = kind === 'sphere' ? [6, 6, 6] : [4, 3, 4];
     created.push({ list: 'brushes', data: { pos: [x, y + big[1] / 2, z], size: big, mat: 'concrete', shape: kind } });
@@ -549,6 +567,8 @@ function add(kind) {
       fizzler: { type: 'fizzler', pos: [x, y + 1.5, z], size: [3, 3, 0.1] },
       gravity: { type: 'gravity', pos: [x, y + 3, z], size: [8, 6, 8], dir: [0, 1, 0], g: 1 },
       planet: { type: 'gravity', shape: 'sphere', pos: [x, y + 6, z], radius: 8, g: 1 },
+      tube: { type: 'gravity', shape: 'axis', pos: [x, y + 7, z], axis: [0, 0, 1], radius: 7, length: 28, g: 1 },
+      cubefield: { type: 'gravity', shape: 'cube', pos: [x, y + 9, z], size: [26, 26, 26], core: 0, g: 1 },
       gateway: { type: 'gateway', a: { pos: [x, y + 1.5, z], normal: [0, 0, 1] }, b: { pos: [x + 10, y + 1.5, z], normal: [0, 0, 1] }, size: [2, 3] },
     };
     created.push({ list: 'entities', data: defs[kind] });
@@ -681,7 +701,7 @@ function refreshProps(valuesOnly = false) {
     html += `<label>方向<select data-k="oneWay"><option value="">双向</option><option value="ab" ${d.oneWay === 'ab' ? 'selected' : ''}>只能 A → B</option><option value="ba" ${d.oneWay === 'ba' ? 'selected' : ''}>只能 B → A</option></select></label>`;
     html += whenInput();
   } else html += vecInput(k === 'brush' ? '中心位置 (x, y, z)' : '位置 (x, y, z)', 'pos', d);
-  if (SIZED.has(k) && !(k === 'gravity' && d.shape === 'sphere')) html += vecInput('尺寸 (宽, 高, 深)', 'size', d);
+  if (SIZED.has(k) && !(k === 'gravity' && (d.shape === 'sphere' || d.shape === 'axis'))) html += vecInput('尺寸 (宽, 高, 深)', 'size', d);
   if (k === 'cube') {
     html += `<label>种类<select data-k="kind"><option value="normal">普通方块</option><option value="prism" ${d.kind === 'prism' ? 'selected' : ''}>折射方块（激光从 -Z 面射出）</option></select></label>`;
     html += `<label>大小倍数<input type="number" step="0.1" data-k="scale" value="${d.scale ?? 1}" /></label>`;
@@ -713,21 +733,34 @@ function refreshProps(valuesOnly = false) {
   }
   if (k === 'fizzler') html += whenInput();
   if (k === 'gravity') {
-    html += `<label>形状<select data-k="shape"><option value="box">方块区域（朝固定方向）</option><option value="sphere" ${d.shape === 'sphere' ? 'selected' : ''}>球形（朝球心，像小行星）</option></select></label>`;
-    if (d.shape === 'sphere') html += `<label>半径（米）<input type="number" step="0.5" data-k="radius" value="${d.radius ?? 8}" /></label>`;
-    else html += vecInput('重力朝向（单位向量，如 0,1,0 = 掉向天花板）', 'dir', d, 1);
+    const sh = d.shape ?? 'box';
+    html += `<label>形状<select data-k="shape"><option value="box">方块区域（朝固定方向）</option><option value="sphere" ${sh === 'sphere' ? 'selected' : ''}>球形（朝球心，像小行星）</option><option value="axis" ${sh === 'axis' ? 'selected' : ''}>圆筒（背离中轴，像旋转的太空站）</option><option value="cube" ${sh === 'cube' ? 'selected' : ''}>魔方（最近的墙就是地面）</option></select></label>`;
+    if (sh === 'sphere') html += `<label>半径（米）<input type="number" step="0.5" data-k="radius" value="${d.radius ?? 8}" /></label>`;
+    else if (sh === 'axis') {
+      html += `<label>半径（米）<input type="number" step="0.5" data-k="radius" value="${d.radius ?? 10}" /></label>`;
+      html += `<label>长度（米）<input type="number" step="1" data-k="length" value="${d.length ?? 40}" /></label>`;
+      html += vecInput('中轴方向（单位向量，如 0,0,1）', 'axis', { axis: d.axis ?? [0, 0, 1] }, 1);
+    } else if (sh === 'cube') {
+      html += `<label>中央失重区大小（0~1，0 = 没有）<input type="number" step="0.05" data-k="core" value="${d.core ?? 0}" /></label>`;
+      html += `<label>墙角过渡锐度（默认 10，越大越贴近“只认最近的墙”）<input type="number" step="1" data-k="sharp" value="${d.sharp ?? 10}" /></label>`;
+    } else html += vecInput('重力朝向（单位向量，如 0,1,0 = 掉向天花板）', 'dir', d, 1);
+    if (sh !== 'box') html += `<label><input type="checkbox" data-k="invert" ${d.invert ? 'checked' : ''} /> 反向（球形：背离球心，站在空心球的内壁上；圆筒：朝向中轴，站在柱子外面）</label>`;
     html += `<label>强度倍数（1 = 地球重力）<input type="number" step="0.1" data-k="g" value="${d.g ?? 1}" /></label>`;
+    html += `<label><input type="checkbox" data-k="hidden" ${d.hidden ? 'checked' : ''} /> 隐藏（不显示条纹/外壳，玩家只感觉到重力变了）</label>`;
     html += whenInput();
   }
   if (k === 'button' || k === 'exit' || k === 'hazard') {
     html += `<label>表面朝向（up，如 0,-1,0 = 贴在天花板）<input data-k="upvec" value="${(d.up ?? []).join(',')}" /></label>`;
   }
   if (k === 'exit') html += whenInput();
+  if (k === 'hazard') html += `<label><input type="checkbox" data-k="hidden" ${d.hidden ? 'checked' : ''} /> 隐藏（只有致死范围，没有酸液外观；可以配合“酸液外观”材质的装饰砖）</label>`;
   if (selected.kind === 'brush') {
     html += `<label>形状<select data-k="shape"><option value="box">方块</option><option value="cyl" ${d.shape === 'cyl' ? 'selected' : ''}>圆柱（大小 = 直径, 高, 直径）</option><option value="sphere" ${d.shape === 'sphere' ? 'selected' : ''}>球体（大小 = 直径）</option></select></label>`;
     html += vecInput('旋转 (绕 x, y, z 的角度)', 'rot', { rot: d.rot ?? [0, 0, 0] }, 1);
     html += `<label>染色<input type="color" data-k="tint" value="#${new THREE.Color(d.color ?? 0xffffff).getHexString()}" /> <button type="button" data-act="untint">去掉染色</button></label>`;
     html += `<label>材质<select data-k="mat">${BRUSH_MATERIALS.map((m) => `<option value="${m}" ${d.mat === m ? 'selected' : ''}>${MATERIAL_LABELS[m]}</option>`).join('')}</select></label>`;
+    if (d.mat === 'glow' || d.mat === 'acid') html += `<label>发光强度（自发光 / 酸液的光泽）<input type="number" step="0.1" data-k="intensity" value="${d.intensity ?? (d.mat === 'glow' ? 1.5 : 0.3)}" /></label>`;
+    html += `<label><input type="checkbox" data-k="deco" ${d.deco ? 'checked' : ''} /> 只是装饰（没有碰撞，玩家和方块会穿过去）</label>`;
   }
   if (selected.kind === 'spawn') html += `<label>朝向（度，0 = 朝 -Z）<input type="number" step="15" data-k="yaw" value="${d.yaw ?? 0}" /></label>`;
   if (selected.kind === 'button') {
@@ -786,12 +819,18 @@ function refreshProps(valuesOnly = false) {
       } else if (k === 'shape') {
         if (el.value === 'box') delete d.shape;
         else d.shape = el.value;
+        if (selected.kind === 'gravity') {
+          if (el.value === 'axis') Object.assign(d, { axis: d.axis ?? [0, 0, 1], radius: d.radius ?? 7, length: d.length ?? 28 });
+          if (el.value === 'sphere') d.radius = d.radius ?? 8;
+          if (el.value === 'box') d.dir = d.dir ?? [0, 1, 0];
+          if (el.value !== 'box') d.size = d.size ?? [20, 20, 20];
+        }
       } else if (k === 'tint') d.color = parseInt(el.value.slice(1), 16);
       else if (k === 'upvec') {
         const v = el.value.split(/[,，\s]+/).filter(Boolean).map(Number);
         if (v.length === 3 && v.every(Number.isFinite)) d.up = v;
         else delete d.up;
-      } else if (k === 'shadow' || k === 'heavy' || k === 'frame') {
+      } else if (k === 'shadow' || k === 'heavy' || k === 'frame' || k === 'deco' || k === 'hidden' || k === 'invert') {
         if (el.checked) d[k] = true;
         else delete d[k];
       } else if (k === 'oneWay' && !el.value) delete d.oneWay;
@@ -801,6 +840,8 @@ function refreshProps(valuesOnly = false) {
       else d[k] = el.value;
       rebuild(selected);
       commit();
+      // 换了形状或材质，属性面板里要显示的字段也跟着变
+      if (k === 'shape' || k === 'mat') refreshProps();
     });
   }
   box.querySelector('[data-act="untint"]')?.addEventListener('click', () => {

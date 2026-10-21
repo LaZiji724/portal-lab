@@ -9,3 +9,4 @@ shots-*/
 tools/_*.mjs
 tools/dbg-*.mjs
 dbg/
+dbg-*/

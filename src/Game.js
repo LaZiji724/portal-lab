@@ -356,7 +356,7 @@ export class Game {
     }
     if (best) {
       best.dirAt(pos, out.dir);
-      out.mag = best.g;
+      out.mag = best.magAt(pos);
     } else {
       out.dir.copy(this.defaultGravity ?? _downVec);
       out.mag = this.level?.gravityMag ?? 1;
@@ -367,17 +367,32 @@ export class Game {
   _addBrush(b) {
     const shape = b.shape ?? 'box';
     let mat = this.materials[b.mat] ?? this.materials.metal;
-    if (b.color !== undefined && mat.color) mat = tintedMaterial(mat, b.color);
+    if (b.mat === 'glow') {
+      // 自发光（水晶、灯带、远处的城市灯火）：颜色乘上亮度，泛光会把它晕开
+      const key = `${b.color ?? 0xffffff}:${b.intensity ?? 2.5}`;
+      this._glowMats ??= new Map();
+      if (!this._glowMats.has(key)) this._glowMats.set(key, new THREE.MeshBasicMaterial({ color: new THREE.Color(b.color ?? 0xffffff).multiplyScalar(b.intensity ?? 2.5) }));
+      mat = this._glowMats.get(key);
+    } else if (b.color !== undefined && mat.color) mat = tintedMaterial(mat, b.color);
+    // 酸液外观：intensity 调自发光的强弱（大片的酸河不要晃眼）
+    if (b.mat === 'acid' && b.intensity !== undefined) {
+      const key = `acid:${b.color ?? 0}:${b.intensity}`;
+      this._glowMats ??= new Map();
+      if (!this._glowMats.has(key)) this._glowMats.set(key, Object.assign(mat.clone(), { emissiveIntensity: b.intensity }));
+      mat = this._glowMats.get(key);
+    }
     const mesh = new THREE.Mesh(brushGeometry(b.size, b.pos, TEX_SCALE[b.mat] ?? 2, shape), mat);
     mesh.position.set(...b.pos);
     // rot：绕 x、y、z 轴的旋转角（度），用来做斜坡、斜墙、多边形房间
     const quat = b.rot ? new THREE.Quaternion().setFromEuler(new THREE.Euler(...b.rot.map((d) => THREE.MathUtils.degToRad(d)), 'YXZ')) : null;
     if (quat) mesh.quaternion.copy(quat);
-    const transparent = b.mat === 'glass' || b.mat === 'grate';
-    mesh.castShadow = b.mat !== 'glass';
+    const transparent = b.mat === 'glass' || b.mat === 'grate' || b.mat === 'acid';
+    mesh.castShadow = b.mat !== 'glass' && b.mat !== 'glow' && b.mat !== 'acid';
     mesh.receiveShadow = !transparent;
     if (b.mat === 'glass') mesh.renderOrder = 2;
     this.levelGroup.add(mesh);
+    // deco：只有外观没有碰撞（树冠、云朵、水晶……）
+    if (b.deco) return;
     const bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(...b.pos);
     if (quat) bodyDesc.setRotation(quat);
     const body = this.world.createRigidBody(bodyDesc);

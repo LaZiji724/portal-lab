@@ -7,6 +7,10 @@ import { Player, PLAYER } from './player/Player.js';
 import { PortalGunView, ShotEffects } from './player/PortalGun.js';
 import { PortalSystem } from './portal/PortalSystem.js';
 import { PortalRenderer } from './portal/PortalRenderer.js';
+import { Post } from './core/post.js';
+import { Ambience, createShaft } from './world/ambience.js';
+import { addDressing } from './world/dressing.js';
+import { applyTheme } from './world/theme.js';
 import { getMaterials, brushGeometry, PORTALABLE, TEX_SCALE } from './world/materials.js';
 import { createLightFixture } from './world/entityVisuals.js';
 import { Cube, Button, Door, Exit, Hazard, Switch, LaserEmitter, Catcher, Bridge, Launcher, Platform, Fizzler } from './world/entities.js';
@@ -21,9 +25,9 @@ const _Y = new THREE.Vector3(0, 1, 0);
 const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 
 export const QUALITY = {
-  low: { pixelRatio: 1, depth: 1, rtScale: 0.5, shadows: false, budget: 4 },
-  medium: { pixelRatio: 1.25, depth: 2, rtScale: 0.75, shadows: true, budget: 8 },
-  high: { pixelRatio: 2, depth: 3, rtScale: 1, shadows: true, budget: 13 },
+  low: { pixelRatio: 1, depth: 1, rtScale: 0.5, shadows: false, budget: 4, post: false },
+  medium: { pixelRatio: 1.25, depth: 2, rtScale: 0.75, shadows: true, budget: 8, post: true, msaa: 0, bloomScale: 0.35 },
+  high: { pixelRatio: 2, depth: 3, rtScale: 1, shadows: true, budget: 13, post: true, msaa: 4, bloomScale: 0.5 },
 };
 
 /** 激光光束的画法：一根发光的细圆柱 + 白色内芯 */
@@ -100,7 +104,8 @@ export class Game {
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.55;
-    this.scene.add(new THREE.HemisphereLight(0xdce6ff, 0x2a2824, 0.35));
+    this.hemi = new THREE.HemisphereLight(0xdce6ff, 0x2a2824, 0.35);
+    this.scene.add(this.hemi);
 
     this.materials = getMaterials(quality === 'low' ? 'low' : 'high', this.renderer.capabilities.getMaxAnisotropy());
     this.input = new Input(canvas);
@@ -114,6 +119,7 @@ export class Game {
     this.gunView = new PortalGunView();
     this.effects = new ShotEffects(this.scene);
     this.beams = new LaserBeams(this.scene);
+    this.ambience = new Ambience(this.scene);
 
     this.levelGroup = new THREE.Group();
     this.scene.add(this.levelGroup);
@@ -168,6 +174,10 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cfg.pixelRatio));
     this.shadows = cfg.shadows;
     this.renderer.shadowMap.enabled = cfg.shadows;
+    // 后期（泛光）：低画质关闭；重新建立，因为多重采样数随画质变化
+    this.post?.dispose();
+    this.post = cfg.post ? new Post(this.renderer, this.portalRenderer, () => this.player.camera, { samples: this.touch ? 0 : cfg.msaa, bloomScale: cfg.bloomScale }) : null;
+    if (this.theme) applyTheme(this, this.level?.chapter ?? 0);
     this.portalRenderer.setQuality({ depth: cfg.depth, scale: cfg.rtScale, budget: cfg.budget });
     // 阴影开关会改变着色器，需要重新编译
     this.scene.traverse((o) => {
@@ -196,6 +206,8 @@ export class Game {
     this.gunView.setAspect(w / h);
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     this.portalRenderer.setSize(size.x, size.y);
+    this.post?.setSize(w, h, this.renderer.getPixelRatio());
+    this.ambience?.setPixelRatio(this.renderer.getPixelRatio());
   }
 
   // ---------------------------------------------------------------- 信号（按钮、开关、激光接收器）
@@ -238,8 +250,10 @@ export class Game {
       this.scene.fog = null;
       this.scene.background = new THREE.Color(0x07090b);
     }
+    applyTheme(this, def.chapter ?? 0);
 
     for (const b of def.brushes) this._addBrush(b);
+    addDressing(this, def, this.levelGroup);
     this.lights = [];
     for (const e of def.entities ?? []) {
       switch (e.type) {
@@ -338,6 +352,12 @@ export class Game {
       const f = createLightFixture(e);
       f.position.set(e.pos[0], e.pos[1] + 0.12, e.pos[2]);
       this.levelGroup.add(f);
+      if ((e.intensity ?? 30) >= 25 && e.shaft !== false) {
+        const h = Math.min(e.distance ?? 22, Math.max(2.5, e.pos[1] * 0.9), 8);
+        const shaft = createShaft(e.color ?? 0xfff1dc, h, Math.min(2.4, 0.9 + h * 0.18));
+        shaft.position.set(e.pos[0], e.pos[1] - 0.05, e.pos[2]);
+        this.levelGroup.add(shaft);
+      }
     }
     this.lights.push(light);
   }
@@ -838,10 +858,12 @@ export class Game {
     this.effects.update(dt);
     const sp = Math.hypot(p.velocity.x, p.velocity.z) / Math.sqrt(p.scale);
     this.gunView.update(dt, sp, p.grounded, lookDX, lookDY);
+    this.ambience.update(now, p.camera.position);
 
     if (this.shadows) this.renderer.shadowMap.needsUpdate = true;
     this.renderer.autoClear = true;
-    this.portalRenderer.render(p.camera);
+    if (this.post) this.post.render();
+    else this.portalRenderer.render(p.camera);
     if (this.gunView.visible && this.state !== 'menu') {
       this.renderer.autoClear = false;
       this.renderer.clearDepth();

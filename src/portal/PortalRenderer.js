@@ -129,10 +129,10 @@ export class PortalRenderer {
   }
 
   /** 渲染整帧（不含手持枪模型） */
-  render(camera) {
+  render(camera, target = null) {
     this.passes = 0;
     camera.updateMatrixWorld(true);
-    this._renderView(camera, 0, null, this.size, 1, camera.projectionMatrix, null);
+    this._renderView(camera, 0, target, this.size, 1, camera.projectionMatrix, null);
   }
 
   dispose() {

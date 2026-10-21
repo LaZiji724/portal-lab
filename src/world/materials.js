@@ -313,9 +313,12 @@ function gel(size, aniso, color, emissive, seed) {
 let cache = null;
 
 /** 材质库。brush 的 mat 字段见 BRUSH_MATERIALS */
+let aniso = 4;
 export function getMaterials(quality = 'high', anisotropy = 4) {
   if (cache) return cache;
-  const size = quality === 'low' ? 256 : 512;
+  // 这里生成的是照片贴图加载完成前的临时贴图，分辨率很低，生成很快
+  const size = 128;
+  aniso = anisotropy;
   const white = whitePanels(size, anisotropy);
   // 小号面板：贴图更密、偏冷色；大号面板：贴图更疏、偏暖色。面板的“格子大小”就是门的大小
   const whiteS = white.clone();
@@ -328,22 +331,96 @@ export function getMaterials(quality = 'high', anisotropy = 4) {
     whiteL,
     metal: darkMetal(size, anisotropy),
     concrete: roughConcrete(size, anisotropy),
+    plate: new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.5, metalness: 0.6 }),
     glass: glass(),
     grate: grate(size, anisotropy),
     acid: acid(size, anisotropy),
     bounce: gel(size, anisotropy, 0x1a7dff, 0x0a3cff, 131),
     speed: gel(size, anisotropy, 0xff7a10, 0xff4a00, 151),
   };
+  upgradeMaterials(cache);
   return cache;
 }
 
-export const BRUSH_MATERIALS = ['white', 'whiteS', 'whiteL', 'metal', 'concrete', 'glass', 'grate', 'bounce', 'speed'];
+// ---------------------------------------------------------------- 照片级 PBR 贴图（public/tex，ambientCG CC0 照片 + 自己叠加的板缝）
+
+const TEX_BASE = `${import.meta.env?.BASE_URL ?? './'}tex/`;
+const texCache = new Map();
+
+function loadTex(file, srgb) {
+  if (texCache.has(file)) return texCache.get(file);
+  const p = new Promise((resolve, reject) => {
+    new THREE.TextureLoader().load(
+      TEX_BASE + file,
+      (t) => {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.anisotropy = aniso;
+        resolve(t);
+      },
+      undefined,
+      reject
+    );
+  });
+  texCache.set(file, p);
+  return p;
+}
+
+const setCache = new Map();
+/** 一套贴图：<name>_c 颜色、_n 法线、_o（R=AO G=粗糙度 B=金属度）。加载失败时返回 null，继续用临时贴图 */
+export function loadPBRSet(name) {
+  if (!setCache.has(name)) {
+    setCache.set(
+      name,
+      Promise.all([loadTex(`${name}_c.webp`, true), loadTex(`${name}_n.webp`, false), loadTex(`${name}_o.webp`, false)])
+        .then(([map, normalMap, orm]) => ({ map, normalMap, orm }))
+        .catch(() => null)
+    );
+  }
+  return setCache.get(name);
+}
+
+function applySet(mat, set, { normalScale = 1, aoIntensity = 1, roughness = 1, metalness = 1 } = {}) {
+  if (!set) return;
+  mat.map = set.map;
+  mat.normalMap = set.normalMap;
+  mat.normalScale?.set(normalScale, normalScale);
+  mat.aoMap = set.orm;
+  mat.aoMapIntensity = aoIntensity;
+  mat.roughnessMap = set.orm;
+  mat.metalnessMap = set.orm;
+  mat.roughness = roughness;
+  mat.metalness = metalness;
+  mat.needsUpdate = true;
+}
+
+function upgradeMaterials(m) {
+  loadPBRSet('white').then((set) => {
+    for (const k of ['white', 'whiteS', 'whiteL']) applySet(m[k], set, { normalScale: 1, aoIntensity: 1 });
+  });
+  loadPBRSet('dark').then((set) => applySet(m.metal, set, { normalScale: 1.1, aoIntensity: 1 }));
+  setFloor(m, 'floor_light');
+  loadPBRSet('plate').then((set) => applySet(m.plate, set, { normalScale: 1.2 }));
+}
+
+let floorName = null;
+/** 切换地面（concrete 材质）使用的贴图 */
+export function setFloor(m, name) {
+  if (floorName === name) return;
+  floorName = name;
+  loadPBRSet(name).then((set) => {
+    if (floorName === name) applySet(m.concrete, set, { normalScale: 1, aoIntensity: 1 });
+  });
+}
+
+export const BRUSH_MATERIALS = ['white', 'whiteS', 'whiteL', 'metal', 'concrete', 'plate', 'glass', 'grate', 'bounce', 'speed'];
 export const MATERIAL_LABELS = {
   white: '白色面板（可开门）',
   whiteS: '小号面板（开出小门，穿过会缩小）',
   whiteL: '大号面板（开出大门，穿过会放大）',
   metal: '金属（不可开门）',
-  concrete: '混凝土（不可开门）',
+  concrete: '地砖 / 混凝土（不可开门）',
+  plate: '八角金属板（不可开门）',
   glass: '玻璃（挡子弹）',
   grate: '栅格（子弹可穿过）',
   bounce: '弹跳凝胶（蓝）',
@@ -356,7 +433,7 @@ export const PORTALABLE = new Map([
   ['whiteL', 2.2],
 ]);
 /** 贴图重复周期（米）：小号面板格子小，大号面板格子大 */
-export const TEX_SCALE = { white: 2, whiteS: 0.9, whiteL: 4.4 };
+export const TEX_SCALE = { white: 2, whiteS: 0.9, whiteL: 4.4, metal: 2, concrete: 3, plate: 2 };
 
 /** 每 2 米重复一次贴图，并按世界坐标展开 UV，相邻墙体的纹理可以无缝衔接 */
 export function brushGeometry(size, pos, texScale = 2) {

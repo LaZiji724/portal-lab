@@ -16,9 +16,9 @@ export const THEMES = [
   { wall: 0x77a6e6, floor: 'floor_dark', floorTint: 0xa9c9ff, sky: 0xbfd8ff, ground: 0x1d2a3d, hemi: 0.5, exposure: 1.18, bloom: 0.45, accent: 0x38d6ff, dust: 0xbfe6ff, env: 0.6 },
   // 4 综合难关：暗红与炭黑，压迫感
   { wall: 0xcf7a74, floor: 'floor_dark', floorTint: 0xd8b6b0, sky: 0xffcfc4, ground: 0x3b1c1a, hemi: 0.55, exposure: 1.2, bloom: 0.5, accent: 0xff6a45, dust: 0xffd1c4, env: 0.55 },
-  // 5 异形空间：青绿色的石室与金色灯带
-  { wall: 0x8fd6c8, floor: 'floor_cool', floorTint: 0xcfe6df, sky: 0xd5fff2, ground: 0x203a36, hemi: 0.55, exposure: 1.2, bloom: 0.4, accent: 0xffd36b, dust: 0xfff0c8, env: 0.6 },
-  // 6 星球与重力：深空，冷色调
+  // 5 云海奇境：奶白色的石头、金色的灯带、明亮的天空
+  { wall: 0xe4d9c2, floor: 'floor_light', floorTint: 0xefe5d0, sky: 0xd8ecff, ground: 0x8a7a60, hemi: 0.85, exposure: 1.05, bloom: 0.38, accent: 0xffd36b, dust: 0xfff4d8, env: 0.7 },
+  // 6 星海万象：深空，冷色调
   { wall: 0x9db4ff, floor: 'floor_cool', floorTint: 0xb8c4e8, sky: 0x9fb4ff, ground: 0x0b0e22, hemi: 0.35, exposure: 1.15, bloom: 0.5, accent: 0x7af0ff, dust: 0xcfe0ff, env: 0.5 },
 ];
 
@@ -35,9 +35,11 @@ export function applyTheme(game, index = 0) {
   setFloor(m, t.floor);
   game.hemi.color.setHex(t.sky);
   game.hemi.groundColor.setHex(t.ground);
-  game.hemi.intensity = game.level?.sky?.hemi ?? t.hemi;
-  game.scene.environmentIntensity = t.env;
-  game.renderer.toneMappingExposure = game.level?.sky?.exposure ?? t.exposure;
-  game.post?.setBloom(t.bloom);
+  // 关卡可以用 look{hemi,exposure,bloom,env} 微调（封闭的房间没有 sky 也能调亮度），sky 里的 hemi/exposure 同样有效
+  const look = { ...(game.level?.sky ?? {}), ...(game.level?.look ?? {}) };
+  game.hemi.intensity = look.hemi ?? t.hemi;
+  game.scene.environmentIntensity = look.env ?? t.env;
+  game.renderer.toneMappingExposure = look.exposure ?? t.exposure;
+  game.post?.setBloom(look.bloom ?? t.bloom);
   game.ambience?.setColor(t.dust, t.accent);
 }

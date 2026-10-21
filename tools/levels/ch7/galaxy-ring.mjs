@@ -290,9 +290,15 @@ const HELP = `
       await ev(({ HELP, PLD }) => {
         const { H, pt } = new Function('pt', 'g', HELP)(window.__pt, window.__game);
         const g = window.__game;
-        const c = g.cubes[0].position.toArray();
-        H.walkArc(PLD[0].c, PLD[0].r, H.norm(H.sub(c, PLD[0].c)), 0.5, 1.4);
-        if (!pt.use(c)) throw new Error('没拿到方块');
+        // 低重力里方块会轻轻漂动：每次都瞄准它现在的位置，拿不到就再试
+        let got = false;
+        for (let k = 0; k < 6 && !got; k++) {
+          const c = g.cubes[0].position.toArray();
+          H.walkArc(PLD[0].c, PLD[0].r, H.norm(H.sub(c, PLD[0].c)), 0.5, 1.4);
+          got = pt.use(g.cubes[0].position.toArray());
+          if (!got) pt.run(0.3);
+        }
+        if (!got) throw new Error('没拿到方块');
         pt.run(0.2);
       }, { HELP, PLD });
       // 翠星 → 冰星 → 沙星 → 紫晶星：朝下一颗星助跑起跳，被它的引力接住

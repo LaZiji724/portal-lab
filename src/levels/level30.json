@@ -1,0 +1,527 @@
+{
+ "version": 1,
+ "name": "浮空群岛",
+ "hint": "天上的小岛之间隔着很远。踩上黄色箭头的弹射板能飞到下一座岛；最后一段落差太大，要靠传送门。掉下去就没有地面了。",
+ "gun": "both",
+ "killY": -30,
+ "sky": {
+  "kind": "dusk",
+  "hemi": 0.75,
+  "exposure": 1.1,
+  "sun": {
+   "dir": [
+    0.8,
+    0.16,
+    -0.5
+   ],
+   "intensity": 2.6
+  },
+  "fogNear": 60,
+  "fogFar": 380
+ },
+ "spawn": {
+  "pos": [
+   -3,
+   0,
+   0
+  ],
+  "yaw": -90
+ },
+ "brushes": [
+  {
+   "pos": [
+    0,
+    -1.25,
+    0
+   ],
+   "size": [
+    16,
+    2.5,
+    16
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 8829032
+  },
+  {
+   "pos": [
+    0,
+    -6.9,
+    0
+   ],
+   "size": [
+    16.32,
+    16.32,
+    16.32
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    24,
+    1.75,
+    -6
+   ],
+   "size": [
+    10.8,
+    2.5,
+    10.8
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7972956
+  },
+  {
+   "pos": [
+    24,
+    -2.47,
+    -6
+   ],
+   "size": [
+    11.016,
+    11.016,
+    11.016
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    44,
+    4.75,
+    6
+   ],
+   "size": [
+    12.8,
+    2.5,
+    12.8
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 9355376
+  },
+  {
+   "pos": [
+    44,
+    -0.02,
+    6
+   ],
+   "size": [
+    13.056,
+    13.056,
+    13.056
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    66,
+    7.75,
+    -2
+   ],
+   "size": [
+    16.8,
+    2.5,
+    16.8
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 8829032
+  },
+  {
+   "pos": [
+    66,
+    1.88,
+    -2
+   ],
+   "size": [
+    17.136,
+    17.136,
+    17.136
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    41.3,
+    9.5,
+    6
+   ],
+   "size": [
+    0.6,
+    7,
+    6
+   ],
+   "mat": "metal"
+  },
+  {
+   "pos": [
+    41.62,
+    8.85,
+    6
+   ],
+   "size": [
+    0.04,
+    5.5,
+    4
+   ],
+   "mat": "white"
+  },
+  {
+   "pos": [
+    60.7,
+    12.5,
+    -2.1
+   ],
+   "size": [
+    0.6,
+    7,
+    4.2
+   ],
+   "mat": "metal"
+  },
+  {
+   "pos": [
+    60.38,
+    11.85,
+    -2.1
+   ],
+   "size": [
+    0.04,
+    5.5,
+    3.4
+   ],
+   "mat": "white"
+  },
+  {
+   "pos": [
+    -4,
+    1.5,
+    4
+   ],
+   "size": [
+    0.6,
+    3,
+    0.6
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7031343
+  },
+  {
+   "pos": [
+    -4,
+    4,
+    4
+   ],
+   "size": [
+    3.8,
+    3.8,
+    3.8
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 4168271
+  },
+  {
+   "pos": [
+    3,
+    1.35,
+    -5.5
+   ],
+   "size": [
+    0.54,
+    2.7,
+    0.54
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7031343
+  },
+  {
+   "pos": [
+    3,
+    3.6,
+    -5.5
+   ],
+   "size": [
+    3.42,
+    3.42,
+    3.42
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 4168271
+  },
+  {
+   "pos": [
+    21,
+    4.2,
+    -9
+   ],
+   "size": [
+    0.48,
+    2.4,
+    0.48
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7031343
+  },
+  {
+   "pos": [
+    21,
+    6.2,
+    -9
+   ],
+   "size": [
+    3.04,
+    3.04,
+    3.04
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 4168271
+  },
+  {
+   "pos": [
+    41,
+    7.35,
+    10
+   ],
+   "size": [
+    0.54,
+    2.7,
+    0.54
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7031343
+  },
+  {
+   "pos": [
+    41,
+    9.6,
+    10
+   ],
+   "size": [
+    3.42,
+    3.42,
+    3.42
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 4168271
+  },
+  {
+   "pos": [
+    70,
+    10.65,
+    3
+   ],
+   "size": [
+    0.66,
+    3.3,
+    0.66
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7031343
+  },
+  {
+   "pos": [
+    70,
+    13.4,
+    3
+   ],
+   "size": [
+    4.18,
+    4.18,
+    4.18
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 4168271
+  },
+  {
+   "pos": [
+    64,
+    10.35,
+    -6
+   ],
+   "size": [
+    0.54,
+    2.7,
+    0.54
+   ],
+   "mat": "concrete",
+   "shape": "cyl",
+   "color": 7031343
+  },
+  {
+   "pos": [
+    64,
+    12.6,
+    -6
+   ],
+   "size": [
+    3.42,
+    3.42,
+    3.42
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 4168271
+  },
+  {
+   "pos": [
+    12,
+    -14,
+    20
+   ],
+   "size": [
+    6.8,
+    6.8,
+    6.8
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    34,
+    -8,
+    -22
+   ],
+   "size": [
+    10,
+    10,
+    10
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    56,
+    16,
+    22
+   ],
+   "size": [
+    6,
+    6,
+    6
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    -16,
+    10,
+    -18
+   ],
+   "size": [
+    8,
+    8,
+    8
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  },
+  {
+   "pos": [
+    84,
+    -4,
+    18
+   ],
+   "size": [
+    9,
+    9,
+    9
+   ],
+   "mat": "concrete",
+   "shape": "sphere",
+   "color": 10123874
+  }
+ ],
+ "entities": [
+  {
+   "type": "launcher",
+   "pos": [
+    4.4,
+    0,
+    -1.2
+   ],
+   "target": [
+    23,
+    3,
+    -5
+   ],
+   "time": 1.7
+  },
+  {
+   "type": "launcher",
+   "pos": [
+    25.6,
+    3,
+    -5.4
+   ],
+   "target": [
+    47,
+    6,
+    5
+   ],
+   "time": 1.8
+  },
+  {
+   "type": "exit",
+   "pos": [
+    69.5,
+    10.25,
+    -1
+   ],
+   "size": [
+    2.4,
+    2.5,
+    2.4
+   ]
+  },
+  {
+   "type": "light",
+   "pos": [
+    10,
+    10,
+    5
+   ],
+   "intensity": 60,
+   "distance": 40,
+   "fixture": false,
+   "color": 16767400
+  },
+  {
+   "type": "light",
+   "pos": [
+    66,
+    18,
+    4
+   ],
+   "intensity": 100,
+   "distance": 50,
+   "fixture": false,
+   "color": 16767400
+  }
+ ],
+ "chapter": 5
+}

@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { LEVELS } from '../levels/index.js';
-import { getMaterials, brushGeometry, BRUSH_MATERIALS, MATERIAL_LABELS } from '../world/materials.js';
+import { getMaterials, brushGeometry, tintedMaterial, BRUSH_MATERIALS, MATERIAL_LABELS } from '../world/materials.js';
 import {
   createCubeMesh,
   createButtonMesh,
@@ -41,8 +41,9 @@ const LABEL = {
   platform: '移动平台',
   fizzler: '消散力场',
   gateway: '空间门',
+  gravity: '重力场',
 };
-const SIZED = new Set(['brush', 'door', 'exit', 'hazard', 'platform', 'fizzler']);
+const SIZED = new Set(['brush', 'door', 'exit', 'hazard', 'platform', 'fizzler', 'gravity']);
 /** 能发出信号的东西：门、空间门等的 requires / when 里可以写它们的编号 */
 const SIGNAL_KINDS = ['button', 'switch', 'catcher'];
 const Z = new THREE.Vector3(0, 0, 1);
@@ -175,7 +176,23 @@ function buildObject(item) {
   let obj;
   switch (item.kind) {
     case 'brush': {
-      obj = new THREE.Mesh(brushGeometry(d.size, d.pos), mats[d.mat] ?? mats.metal);
+      let m = mats[d.mat] ?? mats.metal;
+      if (d.color !== undefined && m.color) m = tintedMaterial(m, d.color);
+      obj = new THREE.Mesh(brushGeometry(d.size, d.pos, 2, d.shape ?? 'box'), m);
+      if (d.rot) obj.quaternion.setFromEuler(new THREE.Euler(...d.rot.map((a) => THREE.MathUtils.degToRad(a)), 'YXZ'));
+      break;
+    }
+    case 'gravity': {
+      obj = new THREE.Group();
+      const col = d.color ?? (d.shape === 'sphere' ? 0x6fb8ff : 0x7af0ff);
+      const wire = new THREE.MeshBasicMaterial({ color: col, wireframe: true, transparent: true, opacity: 0.5 });
+      if (d.shape === 'sphere') obj.add(new THREE.Mesh(new THREE.SphereGeometry(d.radius ?? 8, 24, 16), wire));
+      else {
+        const sz = d.size ?? [4, 4, 4];
+        obj.add(new THREE.Mesh(new THREE.BoxGeometry(...sz), wire));
+        const dir = new THREE.Vector3(...(d.dir ?? [0, 1, 0])).normalize();
+        obj.add(lineTo(dir.clone().multiplyScalar(Math.max(2, Math.min(...sz) / 2 + 1)).toArray(), 0xffffff));
+      }
       break;
     }
     case 'spawn':
@@ -389,8 +406,9 @@ function setMode(mode) {
 }
 
 let scaleStart = null;
+const isSphereField = (it) => it.kind === 'gravity' && it.data.shape === 'sphere';
 tc.addEventListener('mouseDown', () => {
-  if (selected && tc.mode === 'scale') scaleStart = [...selected.data.size];
+  if (selected && tc.mode === 'scale') scaleStart = isSphereField(selected) ? [selected.data.radius ?? 8] : [...selected.data.size];
 });
 tc.addEventListener('objectChange', () => {
   if (!selected) return;
@@ -403,7 +421,8 @@ tc.addEventListener('objectChange', () => {
     else d.pos = p;
     o.position.set(...p);
   } else if (tc.mode === 'scale' && scaleStart) {
-    d.size = scaleStart.map((s, i) => fmt(Math.max(0.05, round(s * Math.abs(o.scale.getComponent(i)), snap))));
+    if (isSphereField(selected)) d.radius = fmt(Math.max(0.5, round(scaleStart[0] * Math.abs(o.scale.x), snap)));
+    else d.size = scaleStart.map((s, i) => fmt(Math.max(0.05, round(s * Math.abs(o.scale.getComponent(i)), snap))));
   }
   refreshProps(true);
 });
@@ -495,6 +514,9 @@ function add(kind) {
   if (kind.startsWith('brush:')) {
     const mat = kind.split(':')[1];
     created.push({ list: 'brushes', data: { pos: [x, y + 1.5, z], size: mat === 'glass' || mat === 'grate' ? [4, 3, 0.2] : [4, 3, 0.5], mat } });
+  } else if (kind === 'cyl' || kind === 'sphere') {
+    const big = kind === 'sphere' ? [6, 6, 6] : [4, 3, 4];
+    created.push({ list: 'brushes', data: { pos: [x, y + big[1] / 2, z], size: big, mat: 'concrete', shape: kind } });
   } else if (kind === 'room') {
     const w = 10;
     const h = 5;
@@ -525,6 +547,8 @@ function add(kind) {
       launcher: { type: 'launcher', pos: [x, y, z], target: [x, y, z - 10], time: 1.4 },
       platform: { type: 'platform', pos: [x, y, z], to: [x, y, z - 6], size: [3, 0.4, 3], period: 8 },
       fizzler: { type: 'fizzler', pos: [x, y + 1.5, z], size: [3, 3, 0.1] },
+      gravity: { type: 'gravity', pos: [x, y + 3, z], size: [8, 6, 8], dir: [0, 1, 0], g: 1 },
+      planet: { type: 'gravity', shape: 'sphere', pos: [x, y + 6, z], radius: 8, g: 1 },
       gateway: { type: 'gateway', a: { pos: [x, y + 1.5, z], normal: [0, 0, 1] }, b: { pos: [x + 10, y + 1.5, z], normal: [0, 0, 1] }, size: [2, 3] },
     };
     created.push({ list: 'entities', data: defs[kind] });
@@ -657,7 +681,7 @@ function refreshProps(valuesOnly = false) {
     html += `<label>方向<select data-k="oneWay"><option value="">双向</option><option value="ab" ${d.oneWay === 'ab' ? 'selected' : ''}>只能 A → B</option><option value="ba" ${d.oneWay === 'ba' ? 'selected' : ''}>只能 B → A</option></select></label>`;
     html += whenInput();
   } else html += vecInput(k === 'brush' ? '中心位置 (x, y, z)' : '位置 (x, y, z)', 'pos', d);
-  if (SIZED.has(k)) html += vecInput('尺寸 (宽, 高, 深)', 'size', d);
+  if (SIZED.has(k) && !(k === 'gravity' && d.shape === 'sphere')) html += vecInput('尺寸 (宽, 高, 深)', 'size', d);
   if (k === 'cube') {
     html += `<label>种类<select data-k="kind"><option value="normal">普通方块</option><option value="prism" ${d.kind === 'prism' ? 'selected' : ''}>折射方块（激光从 -Z 面射出）</option></select></label>`;
     html += `<label>大小倍数<input type="number" step="0.1" data-k="scale" value="${d.scale ?? 1}" /></label>`;
@@ -688,7 +712,21 @@ function refreshProps(valuesOnly = false) {
     html += whenInput('条件（填了就只在条件满足时移到终点，不填就一直往返）');
   }
   if (k === 'fizzler') html += whenInput();
+  if (k === 'gravity') {
+    html += `<label>形状<select data-k="shape"><option value="box">方块区域（朝固定方向）</option><option value="sphere" ${d.shape === 'sphere' ? 'selected' : ''}>球形（朝球心，像小行星）</option></select></label>`;
+    if (d.shape === 'sphere') html += `<label>半径（米）<input type="number" step="0.5" data-k="radius" value="${d.radius ?? 8}" /></label>`;
+    else html += vecInput('重力朝向（单位向量，如 0,1,0 = 掉向天花板）', 'dir', d, 1);
+    html += `<label>强度倍数（1 = 地球重力）<input type="number" step="0.1" data-k="g" value="${d.g ?? 1}" /></label>`;
+    html += whenInput();
+  }
+  if (k === 'button' || k === 'exit' || k === 'hazard') {
+    html += `<label>表面朝向（up，如 0,-1,0 = 贴在天花板）<input data-k="upvec" value="${(d.up ?? []).join(',')}" /></label>`;
+  }
+  if (k === 'exit') html += whenInput();
   if (selected.kind === 'brush') {
+    html += `<label>形状<select data-k="shape"><option value="box">方块</option><option value="cyl" ${d.shape === 'cyl' ? 'selected' : ''}>圆柱（大小 = 直径, 高, 直径）</option><option value="sphere" ${d.shape === 'sphere' ? 'selected' : ''}>球体（大小 = 直径）</option></select></label>`;
+    html += vecInput('旋转 (绕 x, y, z 的角度)', 'rot', { rot: d.rot ?? [0, 0, 0] }, 1);
+    html += `<label>染色<input type="color" data-k="tint" value="#${new THREE.Color(d.color ?? 0xffffff).getHexString()}" /> <button type="button" data-act="untint">去掉染色</button></label>`;
     html += `<label>材质<select data-k="mat">${BRUSH_MATERIALS.map((m) => `<option value="${m}" ${d.mat === m ? 'selected' : ''}>${MATERIAL_LABELS[m]}</option>`).join('')}</select></label>`;
   }
   if (selected.kind === 'spawn') html += `<label>朝向（度，0 = 朝 -Z）<input type="number" step="15" data-k="yaw" value="${d.yaw ?? 0}" /></label>`;
@@ -720,7 +758,10 @@ function refreshProps(valuesOnly = false) {
     el.addEventListener('change', () => {
       const key = el.dataset.vec;
       const v = [...el.querySelectorAll('input')].map((i) => fmt(parseFloat(i.value) || 0));
-      if (key === 'sizeB') {
+      if (key === 'rot') {
+        if (v.every((x) => !x)) delete d.rot;
+        else d.rot = v;
+      } else if (key === 'sizeB') {
         const same = d.size && v.join() === d.size.join();
         if (same) delete d.sizeB;
         else d.sizeB = v.map((x) => Math.max(0.2, x));
@@ -742,6 +783,14 @@ function refreshProps(valuesOnly = false) {
         const f = FACINGS[el.value];
         if (key === 'normal') d.normal = [...f.normal];
         else Object.assign(d[key], { normal: [...f.normal], up: [...f.up] });
+      } else if (k === 'shape') {
+        if (el.value === 'box') delete d.shape;
+        else d.shape = el.value;
+      } else if (k === 'tint') d.color = parseInt(el.value.slice(1), 16);
+      else if (k === 'upvec') {
+        const v = el.value.split(/[,，\s]+/).filter(Boolean).map(Number);
+        if (v.length === 3 && v.every(Number.isFinite)) d.up = v;
+        else delete d.up;
       } else if (k === 'shadow' || k === 'heavy' || k === 'frame') {
         if (el.checked) d[k] = true;
         else delete d[k];
@@ -754,6 +803,11 @@ function refreshProps(valuesOnly = false) {
       commit();
     });
   }
+  box.querySelector('[data-act="untint"]')?.addEventListener('click', () => {
+    delete d.color;
+    rebuild(selected);
+    commit();
+  });
   box.querySelector('[data-act="dup"]')?.addEventListener('click', duplicateSelected);
   box.querySelector('[data-act="del"]')?.addEventListener('click', removeSelected);
 }

@@ -91,6 +91,48 @@ export async function startHarness({ shots = 'playtest-shots', width = 960, heig
         }
         return g.state;
       },
+      /** 沿着“脚下的地面”朝世界里的某个点走（星球上、反重力区里也能用）；到了就停 */
+      walkWorld(target, maxT = 10, tol = 0.4, speed = 1, jumpEvery = 0, until = null) {
+        let t = 0;
+        const pl = g.player;
+        const inv = new pl.frame.constructor();
+        const d = pl.position.clone();
+        let jt = 0;
+        while (t < maxT && g.state === 'playing') {
+          d.set(target[0], target[1], target[2]).sub(pl.position);
+          d.addScaledVector(pl.up, -d.dot(pl.up));
+          const dist = d.length();
+          if (dist < tol || (until && until(g))) break;
+          inv.copy(pl.frame).invert();
+          d.applyQuaternion(inv);
+          pl.yaw = Math.atan2(-d.x, -d.z);
+          pl.updateCamera();
+          jt += 0.05;
+          const jump = jumpEvery > 0 && jt >= jumpEvery;
+          if (jump) jt = 0;
+          g.debugRun(0.05, { x: 0, y: Math.min(speed, dist / 1.5 + 0.15) }, jump);
+          t += 0.05;
+        }
+        g.debugRun(0.2);
+        return g.state;
+      },
+      /** 朝世界里的某个点瞄准（保持直立） */
+      lookAtWorld(target) {
+        g.debugAimAt(target);
+      },
+      /** 调试：朝 p 瞄准，返回开门判定的结果（为什么开不了门） */
+      why(color, p) {
+        if (p) g.debugAimAt(p);
+        const eye = g.player.eye(new g.player.position.constructor());
+        const fwd = g.player.forward(new g.player.position.constructor());
+        const res = g.raycast(eye, fwd, 300, (col) => {
+          const info = g.colliderInfo.get(col.handle);
+          return !(info && (info.kind === 'player' || info.kind === 'bridge' || (info.kind === 'brush' && info.mat === 'grate')));
+        });
+        const info = res.hit ? g.colliderInfo.get(res.collider.handle) : null;
+        const pl = res.hit ? g.portals.computePlacement(color, res, res.dir) : null;
+        return { hit: res.hit, pt: res.point, n: res.normal, mat: info?.mat, kind: info?.kind, portalable: info?.portalable, reason: pl?.reason, ok: pl?.ok };
+      },
       state() {
         return g.debugState();
       },

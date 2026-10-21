@@ -9,9 +9,11 @@ import { PortalSystem } from './portal/PortalSystem.js';
 import { PortalRenderer } from './portal/PortalRenderer.js';
 import { Post } from './core/post.js';
 import { Ambience, createShaft } from './world/ambience.js';
+import { Sky } from './world/sky.js';
+import { GravityField } from './world/gravity.js';
 import { addDressing } from './world/dressing.js';
 import { applyTheme } from './world/theme.js';
-import { getMaterials, brushGeometry, PORTALABLE, TEX_SCALE } from './world/materials.js';
+import { getMaterials, brushGeometry, tintedMaterial, PORTALABLE, TEX_SCALE } from './world/materials.js';
 import { createLightFixture } from './world/entityVisuals.js';
 import { Cube, Button, Door, Exit, Hazard, Switch, LaserEmitter, Catcher, Bridge, Launcher, Platform, Fizzler } from './world/entities.js';
 
@@ -22,6 +24,9 @@ const _local = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _yawQ = new THREE.Quaternion();
 const _Y = new THREE.Vector3(0, 1, 0);
+const _dq = new THREE.Quaternion();
+const _downVec = new THREE.Vector3(0, -1, 0);
+const _g = { dir: new THREE.Vector3(0, -1, 0), mag: 1 };
 const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 
 export const QUALITY = {
@@ -158,6 +163,7 @@ export class Game {
     this.platforms = [];
     this.fizzlers = [];
     this.gateDefs = [];
+    this.gravityFields = [];
   }
 
   on(name, fn) {
@@ -235,7 +241,10 @@ export class Game {
     this.unloadLevel();
     this.level = def;
     this.levelIndex = index;
-    this.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+    // 有反重力区、星球或自定义方向时，重力由我们自己算（玩家和方块都按所在位置的重力场受力）
+    this.defaultGravity = new THREE.Vector3(...(def.gravityDir ?? [0, -1, 0])).normalize();
+    this.customGravity = !!def.gravityDir || def.gravityMag !== undefined || (def.entities ?? []).some((e) => e.type === 'gravity');
+    this.world = new RAPIER.World(this.customGravity ? { x: 0, y: 0, z: 0 } : { x: 0, y: -9.81, z: 0 });
     this.world.integrationParameters.numSolverIterations = 8;
     // 注意：Rapier 只有在传入事件队列时才会调用碰撞过滤钩子
     this.eventQueue = new RAPIER.EventQueue(false);
@@ -251,6 +260,15 @@ export class Game {
       this.scene.background = new THREE.Color(0x07090b);
     }
     applyTheme(this, def.chapter ?? 0);
+    this.sky = null;
+    if (def.sky) {
+      // 天空：星空、白天或黄昏，天穹跟着相机，太阳是一盏平行光
+      this.sky = new Sky(def.sky, { low: this.touch });
+      this.levelGroup.add(this.sky.group);
+      if (this.sky.light) this.levelGroup.add(this.sky.light, this.sky.light.target);
+      this.scene.background = new THREE.Color(0x000000);
+      if (this.sky.fogColor !== null && !def.fog) this.scene.fog = new THREE.Fog(this.sky.fogColor, def.sky.fogNear ?? 80, def.sky.fogFar ?? 520);
+    }
 
     for (const b of def.brushes) this._addBrush(b);
     addDressing(this, def, this.levelGroup);
@@ -296,6 +314,9 @@ export class Game {
         case 'fizzler':
           this.fizzlers.push(new Fizzler(this, e));
           break;
+        case 'gravity':
+          this.gravityFields.push(new GravityField(this, e));
+          break;
         default:
           break;
       }
@@ -320,21 +341,57 @@ export class Game {
     this.emit('level', def, index);
   }
 
+  /** pos 处的重力：方向写进 out.dir（单位向量），强度倍数写进 out.mag */
+  gravityAt(pos, out) {
+    let best = null;
+    let bestScore = Infinity;
+    for (const f of this.gravityFields) {
+      if (!f.contains(pos) || !f.active) continue;
+      // 方块场（区域）优先于球形场；方块场之间体积小的优先，球形场之间离球心近的优先
+      const score = f.shape === 'sphere' ? 1e9 + pos.distanceTo(f.pos) : f.vol;
+      if (score < bestScore) {
+        bestScore = score;
+        best = f;
+      }
+    }
+    if (best) {
+      best.dirAt(pos, out.dir);
+      out.mag = best.g;
+    } else {
+      out.dir.copy(this.defaultGravity ?? _downVec);
+      out.mag = this.level?.gravityMag ?? 1;
+    }
+    return out;
+  }
+
   _addBrush(b) {
-    const mat = this.materials[b.mat] ?? this.materials.metal;
-    const mesh = new THREE.Mesh(brushGeometry(b.size, b.pos, TEX_SCALE[b.mat] ?? 2), mat);
+    const shape = b.shape ?? 'box';
+    let mat = this.materials[b.mat] ?? this.materials.metal;
+    if (b.color !== undefined && mat.color) mat = tintedMaterial(mat, b.color);
+    const mesh = new THREE.Mesh(brushGeometry(b.size, b.pos, TEX_SCALE[b.mat] ?? 2, shape), mat);
     mesh.position.set(...b.pos);
+    // rot：绕 x、y、z 轴的旋转角（度），用来做斜坡、斜墙、多边形房间
+    const quat = b.rot ? new THREE.Quaternion().setFromEuler(new THREE.Euler(...b.rot.map((d) => THREE.MathUtils.degToRad(d)), 'YXZ')) : null;
+    if (quat) mesh.quaternion.copy(quat);
     const transparent = b.mat === 'glass' || b.mat === 'grate';
     mesh.castShadow = b.mat !== 'glass';
     mesh.receiveShadow = !transparent;
     if (b.mat === 'glass') mesh.renderOrder = 2;
     this.levelGroup.add(mesh);
-    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(...b.pos));
-    const desc = RAPIER.ColliderDesc.cuboid(b.size[0] / 2, b.size[1] / 2, b.size[2] / 2).setCollisionGroups(GROUPS.world).setFriction(0.8);
+    const bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(...b.pos);
+    if (quat) bodyDesc.setRotation(quat);
+    const body = this.world.createRigidBody(bodyDesc);
+    let desc;
+    if (shape === 'sphere') desc = RAPIER.ColliderDesc.ball(b.size[0] / 2);
+    else if (shape === 'cyl') desc = RAPIER.ColliderDesc.cylinder(b.size[1] / 2, b.size[0] / 2);
+    else desc = RAPIER.ColliderDesc.cuboid(b.size[0] / 2, b.size[1] / 2, b.size[2] / 2);
+    desc.setCollisionGroups(GROUPS.world).setFriction(0.8);
     if (b.mat === 'bounce') desc.setRestitution(0.95).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max);
     if (b.mat === 'speed') desc.setFriction(0.05).setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min);
     const col = this.world.createCollider(desc, body);
-    this.colliderInfo.set(col.handle, { kind: 'brush', def: b, mat: b.mat, portalable: PORTALABLE.has(b.mat), portalSize: PORTALABLE.get(b.mat) });
+    // 只有平整的方块面板能开门（弯曲的星球表面不行，要在上面放白色面板）
+    const portalable = shape === 'box' && PORTALABLE.has(b.mat);
+    this.colliderInfo.set(col.handle, { kind: 'brush', def: b, mat: b.mat, portalable, portalSize: PORTALABLE.get(b.mat), quat });
   }
 
   _addLight(e) {
@@ -589,7 +646,7 @@ export class Game {
     const h = this.player.held;
     if (!h) return;
     h.cube.collider.setCollisionGroups(GROUPS.cube);
-    h.cube.body.setGravityScale(1, true);
+    h.cube.body.setGravityScale(this.customGravity ? 0 : 1, true);
     const v = h.cube.body.linvel();
     const s = Math.hypot(v.x, v.y, v.z);
     const max = 8 * h.cube.scale;
@@ -633,7 +690,7 @@ export class Game {
     if (vel.length() > max) vel.setLength(max);
     cube.body.setLinvel(vel, true);
     // 拿着的方块始终端正地朝着玩家的视线方向（折射方块靠这个来瞄准）
-    _yawQ.setFromAxisAngle(_Y, this.player.yaw);
+    _yawQ.setFromAxisAngle(_Y, this.player.yaw).premultiply(this.player.frame);
     if (h.link) _yawQ.premultiply(h.link.teleportQ);
     cube.body.setRotation(_yawQ, true);
     cube.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -741,6 +798,7 @@ export class Game {
     this._updateGates();
     for (const pl of this.platforms) pl.step(h);
     p.step(h, this.input, this.portals.list);
+    if (this.customGravity) this._applyCubeGravity(h);
     if (p.held) this._updateHeld();
     this.portals.prepareCubes(this.cubes);
     this.world.timestep = h;
@@ -780,7 +838,22 @@ export class Game {
     const killY = this.level.killY ?? -40;
     for (const c of this.cubes) if (c.position.y < killY) this._fizzle(c);
     if (p.position.y < killY) return this.die();
+    // 太空关卡：飘得离出生点太远（掉出星系）也算坠亡
+    const killR = this.level.killR;
+    if (killR) {
+      for (const c of this.cubes) if (c.position.length() > killR) this._fizzle(c);
+      if (p.position.length() > killR) return this.die();
+    }
     for (const ex of this.exits) if (ex.contains(p.position)) return this.complete();
+  }
+
+  _applyCubeGravity(h) {
+    for (const c of this.cubes) {
+      if (this.player.held?.cube === c) continue;
+      this.gravityAt(c.position, _g);
+      const k = 9.81 * _g.mag * c.body.mass() * h;
+      c.body.applyImpulse({ x: _g.dir.x * k, y: _g.dir.y * k, z: _g.dir.z * k }, true);
+    }
   }
 
   _fizzle(cube) {
@@ -851,6 +924,7 @@ export class Game {
     this.portals.updateClones(this.cubes);
     this.portals.update(dt, now);
     for (const ex of this.exits) ex.update(now);
+    for (const gf of this.gravityFields) gf.update(now);
     for (const f of this.fizzlers) f.update(now);
     if (this.bridges.length) this.bridges[0].material.uniforms.time.value = now;
     const acid = this.materials.acid.normalMap;
@@ -859,6 +933,7 @@ export class Game {
     const sp = Math.hypot(p.velocity.x, p.velocity.z) / Math.sqrt(p.scale);
     this.gunView.update(dt, sp, p.grounded, lookDX, lookDY);
     this.ambience.update(now, p.camera.position);
+    this.sky?.update(p.camera.position, now);
 
     if (this.shadows) this.renderer.shadowMap.needsUpdate = true;
     this.renderer.autoClear = true;
@@ -877,6 +952,7 @@ export class Game {
   debugAimAt(target) {
     const eye = this.player.eye(new THREE.Vector3());
     const d = new THREE.Vector3(...target).sub(eye).normalize();
+    d.applyQuaternion(_dq.copy(this.player.frame).invert()); // 换算到玩家自己的坐标系
     this.player.yaw = Math.atan2(-d.x, -d.z);
     this.player.pitch = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1));
     this.player.roll = 0;
@@ -908,6 +984,7 @@ export class Game {
       scale: +p.scale.toFixed(3),
       yaw: +THREE.MathUtils.radToDeg(p.yaw).toFixed(1),
       pitch: +THREE.MathUtils.radToDeg(p.pitch).toFixed(1),
+      up: p.up.toArray().map((v) => +v.toFixed(3)),
       grounded: p.grounded,
       held: !!p.held,
       portals: [this.portals.blue, this.portals.orange].map((q) => (q.placed ? { pos: q.position.toArray().map((v) => +v.toFixed(2)), n: q.normal.toArray(), size: q.size } : null)),

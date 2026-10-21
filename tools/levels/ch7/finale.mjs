@@ -1,6 +1,6 @@
-// 终章「万象」：一座漂浮在星空里的圆形广场，四周立着四扇星门，每扇门后是一个小世界。
+// 终章「万象」（第 37 关，由 ch7.mjs 汇总）：一座漂浮在星空里的圆形广场，四周立着四扇星门，每扇门后是一个小世界。
 // 从每个世界里各取回一个方块，放到广场上对应颜色的按钮上，中央的出口才会亮。
-import { box, cyl, sphere, light, exit, tubeWalls, tubePanel, tubeBox, tubeCap, tubeLawn, tubeTree, planetTree, planetBox, planetPoint, isle, tree, mirrorY } from '../levelkit.mjs';
+import { box, cyl, sphere, light, exit, tubeWalls, tubePanel, tubeBox, tubeCap, tubeLawn, tubeTree, planetTree, planetBox, planetPoint, isle, tree, mirrorY } from '../../levelkit.mjs';
 
 const levels = [];
 const L = (def, solve) => levels.push({ def, solve });

@@ -1,6 +1,6 @@
-// 第 33 关「银河漫步」和第 36 关「环形世界」（第 7 章）。
+// 第 33 关「银河漫步」和第 36 关「环形世界」（第 7 章，由 ch7.mjs 汇总）。
 import * as THREE from 'three';
-import { box, cyl, sphere, light, exit, tree, planetTree, planetPoint } from '../levelkit.mjs';
+import { box, cyl, sphere, light, exit, tree, planetTree, planetPoint } from '../../levelkit.mjs';
 
 const levels = [];
 const L = (def, solve) => levels.push({ def, solve });
@@ -93,7 +93,7 @@ const HELP = `
   const G = 0.3; // 小行星上的重力倍数
   // 行星：翠星（出发）→ 冰星 → 沙星 → 紫晶星（有按钮和光桥）→ 终点星
   const PL = [
-    { name: '翠星', c: [0, 0, 0], r: 6, mat: 'grass', color: 0xc8e8b0, aura: 0x7ad8ff },
+    { name: '翠星', c: [0, 0, 0], r: 6, mat: 'grass', color: 0x9cc890, aura: 0x7ad8ff },
     { name: '冰星', c: [17, 5, 3], r: 4, mat: 'concrete', color: 0xcfe8ff, aura: 0x9fe6ff },
     { name: '沙星', c: [25, 14, 15], r: 4.5, mat: 'concrete', color: 0xe3b27a, aura: 0xffc890 },
     { name: '紫晶星', c: [17, 6, 31], r: 5, mat: 'concrete', color: 0x9a6ad8, aura: 0xc89cff },
@@ -196,7 +196,7 @@ const HELP = `
 
   // ---------------- 装饰：冰星
   // 雪松：树冠是白的
-  brushes.push(...scatter(1, 6, (d) => planetTree(P1.c, P1.r, d, 0.4 + rnd() * 0.25, 0xeaf6ff, 0x6d7f95).map((b) => (b.deco ? { ...b, mat: 'white', color: 0xeef6ff } : b))));
+  brushes.push(...scatter(1, 6, (d) => planetTree(P1.c, P1.r, d, 0.4 + rnd() * 0.25, 0xeaf6ff, 0x6d7f95).map((b) => (b.deco ? { ...b, mat: 'concrete', color: 0xf4f8ff } : b))));
   brushes.push(...scatter(1, 9, (d) => {
     const s = 0.8 + rnd() * 1.4;
     return [0, 33, -33].map((sp, k) => onSphere(P1.c, P1.r, v3.norm(v3.add(d, [0.14 * k - 0.14, 0, 0.12 * k - 0.12])), [0.28, s * (1.2 - k * 0.2), 0.28], { mat: 'glow', color: 0xa8ecff, intensity: 1.5, spin: sp * 2, deco: true }));
@@ -345,14 +345,13 @@ const HELP = `
 {
   const H = 15; // 平台半宽，空间门就在边缘上
   const FL = 16.2; // 地板比空间门多出一圈，穿门的时候脚下不会空
-  const GH = 9; // 空间门的高度
+  const GH = 6; // 空间门的高度：比最高的树（约 4.8 米）高一点就够了，门越矮，远处要画的东西越少
   const LANE = -8; // 激光栅栏所在的 z
   const KX = 3; // 方块底座所在的 x：激光绕一圈回来正好打在这条线上
   const KZ = 5.75; // 接收器所在的 z
   const brushes = [];
   const entities = [];
   const tinted = (b, color, extra = {}) => ({ ...b, color, ...extra });
-  const deco = (b) => ({ ...b, deco: true });
   const glowBox = (x0, y0, z0, x1, y1, z1, color, intensity = 2.2) => ({ ...box(x0, y0, z0, x1, y1, z1, 'glow'), color, intensity, deco: true });
   const CREAM = 0xf4ead6;
   const STONE = 0xe9dcc2;
@@ -380,10 +379,6 @@ const HELP = `
   ]) {
     brushes.push(glowBox(x0, 0, z0, x1, 0.05, z1, 0x7ad8ff, 1.8));
   }
-  // 悬空的石头底座
-  brushes.push(deco(sphere(0, -22, 0, 20, 'concrete', 0xb7a38c)));
-  brushes.push(deco(sphere(-9, -25, 7, 10, 'concrete', 0xa8957f)));
-  brushes.push(deco(sphere(8, -27, -6, 11, 'concrete', 0xa8957f)));
 
   // ---------------- 中间的玻璃墙：看得见、过不去，激光可以穿过去
   brushes.push(tinted(box(-0.1, 0, -H + 0.1, 0.1, 3.4, H - 0.1, 'glass'), 0xbfe4ff));
@@ -431,7 +426,7 @@ const HELP = `
   const BLOSSOM = [0xffb6c8, 0xffd0a8, 0xffc0e0];
   const MINT = [0xa8e8b8, 0x8fd8a0, 0xb8f0c0];
   const addTree = (x, z, s, color) => brushes.push(...tree(x, 0.1, z, s, color, 0x8a6a50));
-  [[-13, 3, 0.75], [-9, 5.5, 0.6], [-2, 8, 0.7], [-12, -3, 0.8], [-2, -4, 0.6], [-1.8, 13, 0.6]].forEach(([x, z, s], i) => addTree(x, z, s, MINT[i % 3]));
+  [[-13, 3, 0.75], [-9, 5.5, 0.6], [-2, 8, 0.7], [-12, -3, 0.8], [-2, -4, 0.6], [-12.5, 7.3, 0.6]].forEach(([x, z, s], i) => addTree(x, z, s, MINT[i % 3]));
   [[13, -3, 0.75], [9.5, 2, 0.7], [12, 5, 0.65], [5.5, -5, 0.6], [13.5, -13, 0.7], [2.2, -13, 0.55]].forEach(([x, z, s], i) => addTree(x, z, s, BLOSSOM[i % 3]));
   const hedge = (x0, z0, x1, z1, color = 0x8fce7a) => brushes.push(tinted(box(x0, 0.1, z0, x1, 1.0, z1, 'grass'), color));
   hedge(-9, 1.5, -5.6, 2.1);
@@ -444,25 +439,23 @@ const HELP = `
   bench(-12.5, 14.0);
   bench(12.5, 0.5, false);
 
-  // ---------------- 空中的云和浮岛（空间门上沿之上能看见）
+  // ---------------- 空中的云和浮岛
   const cloud = (x, y, z, s) => {
     for (const [dx, dy, dz, k] of [[0, 0, 0, 1], [0.9, -0.2, 0.3, 0.8], [-0.9, -0.15, -0.2, 0.75], [0.2, 0.25, -0.6, 0.7]]) {
       brushes.push({ pos: [r2(x + dx * s), r2(y + dy * s), r2(z + dz * s)], size: [r2(s * 1.9 * k), r2(s * 1.3 * k), r2(s * 1.9 * k)], mat: 'glow', color: 0xe6f0ff, intensity: 0.95, shape: 'sphere', deco: true });
     }
   };
-  cloud(-48, 44, -30, 7);
-  cloud(40, 52, 24, 8);
-  cloud(-10, 58, 60, 9);
-  cloud(60, 40, -50, 6);
-  cloud(-40, 50, 50, 6);
+  // 云和浮岛都放在平台正上方（不越过四条边）：从空间门里看到的是隔壁那一格的同一朵云，不会被门的上沿切开
+  cloud(5, 56, 8, 4);
+  cloud(-6, 62, -4, 4.5);
   const farIsle = (x, y, z, rad, color) => {
     brushes.push({ ...cyl(x, y - 2, z, rad, y, 'grass'), color, deco: true });
-    brushes.push({ pos: [x, r2(y - 2 - rad * 0.9), z], size: [rad * 1.9, rad * 1.9, rad * 1.9], mat: 'white', shape: 'sphere', color: 0xd8c6ac, deco: true });
+    brushes.push({ pos: [x, r2(y - 2 - rad * 0.9), z], size: [rad * 1.9, rad * 1.9, rad * 1.9], mat: 'concrete', shape: 'sphere', color: 0xffdcb4, deco: true });
     brushes.push({ pos: [x, r2(y + 2.4), z], size: [rad * 0.9, 4, rad * 0.9], mat: 'grass', shape: 'sphere', color: 0xffc0d8, deco: true });
   };
-  farIsle(-34, 28, 38, 7, 0xdff6d0);
-  farIsle(46, 34, -34, 9, 0xfff0c4);
-  farIsle(24, 30, 60, 6, 0xdff6d0);
+  farIsle(-8, 30, 5, 4.5, 0xdff6d0);
+  farIsle(8.5, 36, -7, 5, 0xfff0c4);
+  farIsle(-5, 42, -9.5, 3.5, 0xdff6d0);
 
   // ---------------- 空间门：四条边各一扇，整条边那么大
   entities.push({
@@ -492,7 +485,8 @@ const HELP = `
       hint: '这个世界首尾相连：从一侧的边缘走出去，会从对面的边缘走回来，激光也一样。方块被激光拦在了对面？那就走出边缘绕一圈。接收器朝着南方，光得从它的南面打过来。',
       gun: 'none',
       killY: -30,
-      fog: { color: 0xc4dcf4, near: 70, far: 420 },
+      // 雾的颜色贴近地平线：远处一格一格重复的世界会慢慢化进天空里
+      fog: { color: 0xc8def6, near: 16, far: 90 },
       sky: { kind: 'day', hemi: 0.8, exposure: 1.0, bloom: 0.2, sun: { dir: [-0.4, 0.75, 0.5], intensity: 2.4 }, sea: { y: -34, kind: 'cloud' } },
       spawn: { pos: [-4, 0, 11], yaw: 180 },
       brushes,

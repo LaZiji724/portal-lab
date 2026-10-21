@@ -1,5 +1,5 @@
-// 第 34 关「引力电梯」和第 35 关「三个直角」（第 7 章）。
-import { box, cyl, sphere, light, exit, panelX, panelZ, wallWithHoles, T, P } from '../levelkit.mjs';
+// 第 34 关「引力电梯」和第 35 关「三个直角」（第 7 章，由 ch7.mjs 汇总）。
+import { box, cyl, sphere, light, exit, panelX, panelZ, wallWithHoles, T } from '../../levelkit.mjs';
 
 const levels = [];
 const L = (def, solve) => levels.push({ def, solve });
@@ -199,7 +199,7 @@ const strip = (x0, z0, x1, z1, y, c, w = 0.22, k = 1.5) => ({
   L(
     {
       name: '引力电梯',
-      hint: '电梯井里有一股向上的引力，可井口的玻璃门要等按钮被压住才会打开。',
+      hint: '电梯井里有一股向上的引力，可井口的玻璃门要等按钮被压住才会打开。两座平台之间隔着虚空，白墙上能开传送门。',
       gun: 'both',
       killY: -30,
       look: { hemi: 0.35, exposure: 1.0, env: 0.4, bloom: 0.5 },
@@ -323,9 +323,9 @@ const strip = (x0, z0, x1, z1, y, c, w = 0.22, k = 1.5) => ({
   const glowBox = (k, c, i, ...a) => lbox(k, ...a, 'glow', { color: c, intensity: i, deco: true });
   const KEYS = ['A', 'B', 'C'];
   const STYLE = {
-    A: { accent: 0x58d8ff, light: 0xdff4ff, wallMat: 'metal', wall: 0xd2deee, floor: 0x26304a, ceil: 0x39435c, acid: 0x4aa890, planet: 0x8fb4e8, planetR: 30 },
-    B: { accent: 0xffb257, light: 0xffe6c4, wallMat: 'concrete', wall: 0xd2ac84, floor: 0x3a2c24, ceil: 0x4a382c, acid: 0xb88a3a, planet: 0xd9774a, planetR: 34 },
-    C: { accent: 0xc08cff, light: 0xeadcff, wallMat: 'metal', wall: 0x9684cc, floor: 0x2a2440, ceil: 0x3a3258, acid: 0xa05ad0, planet: 0xa588e0, planetR: 28 },
+    A: { accent: 0x58d8ff, light: 0xdff4ff, wallMat: 'metal', wall: 0xd2deee, floor: 0x26304a, ceil: 0x39435c, acid: 0x0e5048, acidK: 0, pool: 0x1fae8a, planet: 0x8fb4e8, planetR: 30 },
+    B: { accent: 0xffb257, light: 0xffe6c4, wallMat: 'concrete', wall: 0xd2ac84, floor: 0x3a2c24, ceil: 0x4a382c, acid: 0x6a2a0a, acidK: 0, pool: 0xff6a1a, planet: 0xd9774a, planetR: 34 },
+    C: { accent: 0xc08cff, light: 0xeadcff, wallMat: 'metal', wall: 0x9684cc, floor: 0x2a2440, ceil: 0x3a3258, acid: 0x3a1a6a, acidK: 0, pool: 0x9a3aff, planet: 0xa588e0, planetR: 28 },
   };
   const BTN = { A: 'bA', B: 'bB', C: 'bC' };
   const brushes = [];
@@ -354,7 +354,8 @@ const strip = (x0, z0, x1, z1, y, c, w = 0.22, k = 1.5) => ({
     add(lbox(k, -XW, -DEP, RV, XW, 0, ZH, 'plate', { color: c.floor }));
     add(lbox(k, -XW, -DEP - 0.5, -RV, XW, -DEP, RV, 'plate', { color: 0x15181f }));
     // 深渊里的酸液：发光的薄板，加上一个看不见的致死范围
-    add(lbox(k, -XW, -DEP, -RV, XW, -DEP + 0.14, RV, 'acid', { color: c.acid, intensity: 0.5, deco: true }));
+    add(glowBox(k, c.pool, 0.9, -XW, -DEP, -RV, XW, -DEP + 0.04, RV));
+    add(lbox(k, -XW, -DEP + 0.06, -RV, XW, -DEP + 0.2, RV, 'acid', { color: c.acid, intensity: c.acidK, deco: true }));
     entities.push({ type: 'hazard', hidden: true, ...lb(k, { pos: [0, -1.5, 0], size: [XW * 2, 2.4, RV * 2] }) });
     // 河岸边的发光线，墙顶的灯带，天花板的灯条
     add(glowBox(k, c.accent, 1.7, -XW, 0, -RV - 0.14, XW, 0.035, -RV - 0.02));
@@ -405,7 +406,7 @@ const strip = (x0, z0, x1, z1, y, c, w = 0.22, k = 1.5) => ({
       killY: -30,
       look: { hemi: 0.4, exposure: 1.05, env: 0.45, bloom: 0.5 },
       sky: { kind: 'space', sun: { intensity: 0 }, nebA: 0x4a1f9a, nebB: 0x0f6aa5 },
-      spawn: { pos: process.env.DBGROOM ? wp(process.env.DBGROOM, [-3.6, 0.96, 8.2]) : [-3.6, 0.96, 8.2], yaw: 0 }, // DBGROOM
+      spawn: { pos: [-3.6, 0.96, 8.2], yaw: 0 },
       brushes,
       entities,
     },

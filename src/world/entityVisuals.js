@@ -416,10 +416,11 @@ export function createExitMesh(size) {
   light.position.y = 0;
   group.add(light);
   group.userData.beam = beam;
+  group.userData.glow = glow;
   return group;
 }
 
-export function createHazardMesh(size) {
+export function createHazardMesh(size, atBottom = false) {
   const mats = getMaterials();
   const group = new THREE.Group();
   const geo = new THREE.PlaneGeometry(size[0], size[2], 1, 1);
@@ -427,11 +428,13 @@ export function createHazardMesh(size) {
   for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * size[0]) / 3, (uv.getY(i) * size[2]) / 3);
   const surface = new THREE.Mesh(geo, mats.acid);
   surface.rotation.x = -Math.PI / 2;
-  surface.position.y = size[1] / 2;
+  // atBottom：浅池（贴在地面上的一摊酸液），液面在体积底部，体积本身是“一脚踩进去就死”的范围
+  const sy = atBottom ? -size[1] / 2 + 0.06 : size[1] / 2;
+  surface.position.y = sy;
   surface.receiveShadow = true;
   group.add(surface);
   const glow = new THREE.PointLight(0x50ff30, 2, Math.max(size[0], size[2]) * 0.8, 2);
-  glow.position.y = size[1] / 2 + 0.5;
+  glow.position.y = sy + 0.5;
   group.add(glow);
   return group;
 }

@@ -25,6 +25,18 @@ const _before = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+const _vl = new THREE.Vector3();
+const _ml = new THREE.Vector3();
+const _Yaxis = new THREE.Vector3(0, 1, 0);
+const _inv = new THREE.Quaternion();
+const _tq = new THREE.Quaternion();
+const _qw = new THREE.Quaternion();
+const _qa = new THREE.Quaternion();
+const _qb = new THREE.Quaternion();
+const _qc = new THREE.Quaternion();
+const _tu = new THREE.Vector3();
+const _ax = new THREE.Vector3();
+const _g = { dir: new THREE.Vector3(0, -1, 0), mag: 1 };
 
 export class Player {
   constructor(game) {
@@ -37,6 +49,10 @@ export class Player {
     this.yaw = 0;
     this.pitch = 0;
     this.roll = 0;
+    // 重力坐标系：frame 把“局部 Y 朝上”的世界旋转到当前的“上”（普通关卡里始终是单位四元数）
+    this.frame = new THREE.Quaternion();
+    this.up = new THREE.Vector3(0, 1, 0);
+    this.gMul = 1; // 当前所在重力场的强度倍数
     this.grounded = false;
     this.ground = null; // 脚下碰撞体的信息
     this.launched = false; // 被弹射板弹出去时，空中不能控制方向
@@ -111,12 +127,12 @@ export class Player {
     );
     const c = world.createCharacterController(0.02);
     c.setUp({ x: 0, y: 1, z: 0 });
+    this.controller = c;
     c.setMaxSlopeClimbAngle(THREE.MathUtils.degToRad(50));
     c.setMinSlopeSlideAngle(THREE.MathUtils.degToRad(35));
     c.setSlideEnabled(true);
     c.setApplyImpulsesToDynamicBodies(true);
     c.setCharacterMass(70);
-    this.controller = c;
     this.scale = 0; // 强制 setScale 刷新
     this.setScale(1);
   }
@@ -143,7 +159,11 @@ export class Player {
 
   spawn(pos, yawDeg = 0, scale = 1) {
     this.setScale(scale);
-    this.position.set(pos[0], pos[1] + this.footOffset + 0.02, pos[2]);
+    this.frame.identity();
+    this.game.gravityAt?.(_v.set(pos[0], pos[1], pos[2]), _g);
+    this._alignFrame(0, true, _g.dir);
+    this.gMul = _g.mag;
+    this.position.set(pos[0], pos[1], pos[2]).addScaledVector(this.up, this.footOffset + 0.02);
     this.velocity.set(0, 0, 0);
     this.yaw = THREE.MathUtils.degToRad(yawDeg);
     this.pitch = 0;
@@ -157,7 +177,34 @@ export class Player {
   }
 
   eye(out) {
-    return out.set(this.position.x, this.position.y + this.eyeOffset, this.position.z);
+    return out.copy(this.position).addScaledVector(this.up, this.eyeOffset);
+  }
+
+  /**
+   * 让坐标系的“上”转到 -gdir。物理坐标系一步到位（贴着星球走时每一步只转一点点，镜头跟着地面转）；
+   * 突然的大转向（走进反重力区、从一颗星飞到另一颗星）时，镜头保持不动，roll 之后慢慢归零，像翻个身。
+   */
+  _alignFrame(dt, instant, gdir) {
+    _tu.copy(gdir).negate();
+    const dot = THREE.MathUtils.clamp(this.up.dot(_tu), -1, 1);
+    if (dot > 0.999999) return;
+    const angle = Math.acos(dot);
+    _ax.crossVectors(this.up, _tu);
+    if (_ax.lengthSq() < 1e-8) _ax.set(1, 0, 0).applyQuaternion(this.frame); // 正好倒过来：绕自己的左右轴翻
+    _ax.normalize();
+    _qa.copy(this.frame);
+    _tq.setFromAxisAngle(_ax, angle);
+    this.frame.premultiply(_tq).normalize();
+    this.up.set(0, 1, 0).applyQuaternion(this.frame);
+    // 贴着球面走：速度跟着地面一起转，否则低重力下会被甩出去（像《马里奥银河》）
+    if (angle <= 0.15 && this.grounded) this.velocity.applyQuaternion(_tq);
+    if (angle > 0.15) {
+      lookToQuaternion(this.yaw, this.pitch, this.roll, _qb).premultiply(_qa).premultiply(_qc.copy(this.frame).invert());
+      const look = quaternionToLook(_qb);
+      this.yaw = look.yaw;
+      this.pitch = look.pitch;
+      this.roll = look.roll;
+    }
   }
 
   forward(out) {
@@ -166,16 +213,18 @@ export class Player {
 
   /** 脚底所在的点 */
   feet(out) {
-    return out.set(this.position.x, this.position.y - this.footOffset, this.position.z);
+    return out.copy(this.position).addScaledVector(this.up, -this.footOffset);
   }
 
   _syncBody(teleport) {
     if (!this.body) return;
     if (teleport) {
       this.body.setTranslation(this.position, true);
+      this.body.setRotation(this.frame, true);
       this.world.propagateModifiedBodyPositionsToColliders();
     }
     this.body.setNextKinematicTranslation(this.position);
+    this.body.setNextKinematicRotation(this.frame);
   }
 
   look(dx, dy) {
@@ -186,9 +235,10 @@ export class Player {
   updateCamera() {
     this.eye(this.camera.position);
     lookToQuaternion(this.yaw, this.pitch, this.roll, this.camera.quaternion);
+    this.camera.quaternion.premultiply(this.frame);
     this.camera.updateMatrixWorld(true);
     this.bodyMesh.position.copy(this.position);
-    this.bodyMesh.rotation.set(0, this.yaw, 0);
+    this.bodyMesh.quaternion.setFromAxisAngle(_Yaxis, this.yaw).premultiply(this.frame);
   }
 
   fits(portal) {
@@ -232,7 +282,7 @@ export class Player {
       if (!P.linked || !this.fits(P)) continue;
       const d1 = P.signedDistance(after);
       // 身体有一部分已经到了门平面背后（掉进地上的门时是脚先进去）就要限制
-      const ext = this.radius + Math.abs(P.normal.y) * this.halfHeight - 0.08 * this.scale;
+      const ext = this.radius + Math.abs(P.normal.dot(this.up)) * this.halfHeight - 0.08 * this.scale;
       if (d1 >= ext || d1 < -Math.max(2.4, this.height * 1.3)) continue;
       if (d1 >= 0 && this.velocity.dot(P.normal) > 0) continue; // 正在从门里出来：可以往旁边挪开
       P.toLocal(before, _local);
@@ -257,7 +307,7 @@ export class Player {
   /** 脚下踩着什么：返回 colliderInfo（地面、凝胶、移动平台……） */
   _probeGround() {
     _ray.origin = { x: this.position.x, y: this.position.y, z: this.position.z };
-    _ray.dir = { x: 0, y: -1, z: 0 };
+    _ray.dir = { x: -this.up.x, y: -this.up.y, z: -this.up.z };
     const disabled = this.disabled;
     const hit = this.world.castRay(_ray, this.footOffset + 0.12 * this.scale + 0.05, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, GROUPS.player, this.collider, undefined, (c) => !disabled.has(c.handle));
     return hit ? this.game.colliderInfo.get(hit.collider.handle) ?? null : null;
@@ -267,6 +317,14 @@ export class Player {
     this.computeDisabled(portals);
     const s = this.scale;
     const ss = Math.sqrt(s);
+
+    // 重力方向（可能来自反重力区或星球）：坐标系平滑地转向，之后的运动都在局部坐标里算
+    this.game.gravityAt?.(this.position, _g);
+    this.gMul = _g.mag;
+    if (_g.mag > 0) this._alignFrame(dt, false, _g.dir);
+    this.controller.setUp(this.up);
+    _inv.copy(this.frame).invert();
+    const fq = this.frame;
 
     // 期望移动方向（水平面）
     const fx = input.move.x;
@@ -279,7 +337,7 @@ export class Player {
     const onSpeed = this.grounded && this.ground?.mat === 'speed';
     const wishSpeed = PLAYER.walkSpeed * ss * wishLen * (onSpeed ? PLAYER.speedGel : 1);
 
-    const vel = this.velocity;
+    const vel = _vl.copy(this.velocity).applyQuaternion(_inv);
     if (this.grounded) {
       // 地面：快速贴近目标速度（含摩擦）；推进凝胶上加速慢、摩擦小，但能跑得飞快
       const tx = _v.x * wishSpeed;
@@ -297,7 +355,7 @@ export class Player {
         vel.z += (dz / dl) * maxDelta;
       }
       if (input.jump) {
-        vel.y = PLAYER.jumpSpeed * ss * (this.ground?.mat === 'bounce' ? 1.9 : 1);
+        vel.y = PLAYER.jumpSpeed * ss * Math.sqrt(Math.max(0.35, this.gMul)) * (this.ground?.mat === 'bounce' ? 1.9 : 1);
         this.grounded = false;
         this.game.audio?.play('jump');
       }
@@ -311,7 +369,7 @@ export class Player {
         vel.z += _v.z * a;
       }
     }
-    if (!this.grounded || vel.y > 0) vel.y -= PLAYER.gravity * (this.gravityScale ?? 1) * dt;
+    if (!this.grounded || vel.y > 0) vel.y -= PLAYER.gravity * this.gMul * (this.gravityScale ?? 1) * dt;
     const sp = vel.length();
     if (sp > PLAYER.terminal) vel.multiplyScalar(PLAYER.terminal / sp);
 
@@ -319,19 +377,23 @@ export class Player {
     // 站在移动平台上：跟着平台一起走
     const plat = this.grounded && this.ground?.kind === 'platform' ? this.ground.platform : null;
     if (plat) {
-      desired.x += plat.delta.x;
-      desired.y += Math.max(0, plat.delta.y);
-      desired.z += plat.delta.z;
+      _w.set(plat.delta.x, Math.max(0, plat.delta.y), plat.delta.z).applyQuaternion(_inv);
+      desired.x += _w.x;
+      desired.y += _w.y;
+      desired.z += _w.z;
     }
     const disabled = this.disabled;
+    _w.set(desired.x, desired.y, desired.z).applyQuaternion(fq);
     this.controller.computeColliderMovement(
       this.collider,
-      desired,
+      { x: _w.x, y: _w.y, z: _w.z },
       RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
       GROUPS.player,
       (col) => !disabled.has(col.handle)
     );
-    const m = this.controller.computedMovement();
+    const mw = this.controller.computedMovement();
+    const m = _ml.set(mw.x, mw.y, mw.z).applyQuaternion(_inv); // 局部坐标下的实际位移
+    const mWorld = { x: mw.x, y: mw.y, z: mw.z };
     const wasGrounded = this.grounded;
     const fallSpeed = vel.y;
     this.grounded = this.controller.computedGrounded() && vel.y <= 0.01;
@@ -344,7 +406,7 @@ export class Player {
       if (!c?.collider) continue;
       const info = this.game.colliderInfo.get(c.collider.handle);
       if (info?.mat !== 'bounce') continue;
-      _n.set(c.normal1.x, c.normal1.y, c.normal1.z);
+      _n.set(c.normal1.x, c.normal1.y, c.normal1.z).applyQuaternion(_inv);
       if (Math.abs(_n.y) < 0.6) {
         _n.y = 0;
         _n.normalize();
@@ -370,10 +432,12 @@ export class Player {
     if (desired.y > 0 && m.y < desired.y * 0.5 && !bounced) vel.y = 0; // 撞到天花板
 
     _before.copy(this.position);
-    this.position.x += m.x;
-    this.position.y += m.y;
-    this.position.z += m.z;
+    this.position.x += mWorld.x;
+    this.position.y += mWorld.y;
+    this.position.z += mWorld.z;
+    this.velocity.copy(vel).applyQuaternion(fq);
     this._clampToPortalTunnel(portals, _before, this.position);
+    vel.copy(this.velocity).applyQuaternion(_inv);
 
     this.ground = this.grounded ? this._probeGround() : null;
     if (this.grounded) {
@@ -393,6 +457,7 @@ export class Player {
       this.airTime += dt;
       this.lastFall = vel.y;
     }
+    this.velocity.copy(vel).applyQuaternion(fq);
     this._syncBody(false);
 
     // 脚步声
@@ -447,24 +512,32 @@ export class Player {
 
     // 朝向：把相机四元数整体旋转，再拆回 yaw/pitch，多出来的 roll 之后慢慢归正
     lookToQuaternion(this.yaw, this.pitch, this.roll, _q);
-    _q.premultiply(P.teleportQ);
+    _q.premultiply(this.frame).premultiply(P.teleportQ);
+    const worldLook = _qw.copy(_q);
+    // 出口处的重力可能和入口不同（比如从一颗星球的北极走到另一颗的南极）：坐标系当场对齐，镜头只剩下门造成的歪斜
+    this.position.copy(newEye);
+    this.game.gravityAt?.(this.position, _g);
+    if (_g.mag > 0) this._alignFrame(0, true, _g.dir);
+    this.gMul = _g.mag;
+    _q.copy(worldLook).premultiply(_inv.copy(this.frame).invert());
     const look = quaternionToLook(_q);
     this.yaw = look.yaw;
     this.pitch = look.pitch;
     this.roll = look.roll;
 
-    this.position.set(newEye.x, newEye.y - this.eyeOffset, newEye.z);
+    this.position.copy(newEye).addScaledVector(this.up, -this.eyeOffset);
     // 从墙上的门出来时，身体保持直立；如果脚会陷进地板，就往上抬
     const skip = Q.tunnel;
     _ray.origin = { x: newEye.x, y: newEye.y, z: newEye.z };
-    _ray.dir = { x: 0, y: -1, z: 0 };
+    _ray.dir = { x: -this.up.x, y: -this.up.y, z: -this.up.z };
     const need = this.eyeOffset + this.footOffset + 0.02;
     const hit = this.world.castRay(_ray, need, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, GROUPS.player, undefined, undefined, (c) => {
       return !skip.has(c.handle) && c.handle !== this.collider.handle && !(this.held && c.handle === this.held.cube.collider.handle);
     });
     if (hit && hit.timeOfImpact < need) {
-      this.position.y += need - hit.timeOfImpact;
-      if (this.velocity.y < 0) this.velocity.y = 0;
+      this.position.addScaledVector(this.up, need - hit.timeOfImpact);
+      const vu = this.velocity.dot(this.up);
+      if (vu < 0) this.velocity.addScaledVector(this.up, -vu);
     }
     this.grounded = false;
     this.ground = null;

@@ -8,6 +8,8 @@ const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _local = new THREE.Vector3();
 const _n = new THREE.Vector3();
+const _nW = new THREE.Vector3();
+const _c = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _q = new THREE.Quaternion();
@@ -177,22 +179,44 @@ export class PortalSystem {
     const HW = 0.62 * size;
     const HH = 1.12 * size;
     const b = info.def;
-    const n = _n.set(hit.normal.x, hit.normal.y, hit.normal.z);
+    // 斜放的面板：先把命中点换算到“没转过”的局部坐标里算，最后再转回世界
+    const Q = info.quat;
+    const QI = Q ? Q.clone().invert() : null;
+    const C = _c.set(...b.pos);
+    const toLoc = (p, out) => (Q ? out.copy(p).sub(C).applyQuaternion(QI).add(C) : out.copy(p));
+    const toWld = (p, out) => (Q ? out.copy(p).sub(C).applyQuaternion(Q).add(C) : out.copy(p));
+    const dirLoc = (d, out) => (Q ? out.copy(d).applyQuaternion(QI) : out.copy(d));
+    const dirWld = (d, out) => (Q ? out.copy(d).applyQuaternion(Q) : out.copy(d));
+
+    const nW = _nW.set(hit.normal.x, hit.normal.y, hit.normal.z);
+    const n = dirLoc(nW, _n);
     const k = Math.abs(n.x) > 0.9 ? 0 : Math.abs(n.y) > 0.9 ? 1 : Math.abs(n.z) > 0.9 ? 2 : -1;
     if (k < 0) return { ok: false, reason: 'surface' };
-    n.set(0, 0, 0).setComponent(k, Math.sign(hit.normal[AXES[k]]));
+    const sg = Math.sign(n.getComponent(k));
+    n.set(0, 0, 0).setComponent(k, sg);
+    dirWld(n, nW); // 对齐到面板真正的法线
 
-    // 门的“上”方向：墙面上永远朝上；地面/天花板上朝着玩家视线方向。
-    // 地面/天花板上的窄条面板放不下斜着的门时，改成沿面板长边摆正
+    // 门的“上”方向：墙面上永远朝上（世界的上）；平躺的面（地面、天花板）朝着玩家视线方向。
+    // 平躺的窄条面板放不下斜着的门时，改成沿面板长边摆正
     const ups = [];
-    if (k === 1) {
-      const v = new THREE.Vector3(viewDir.x, 0, viewDir.z);
-      if (v.lengthSq() < 1e-4) v.set(0, 0, -1);
+    const wu = _v2.set(0, 1, 0);
+    const proj = _v.copy(wu).addScaledVector(nW, -wu.dot(nW));
+    if (proj.length() > 0.5) ups.push(dirLoc(proj.normalize(), new THREE.Vector3()));
+    else {
+      const v = _v.set(viewDir.x, viewDir.y, viewDir.z);
+      v.addScaledVector(nW, -v.dot(nW));
+      if (v.lengthSq() < 1e-4) v.crossVectors(nW, _v2.set(1, 0, 0));
+      if (v.lengthSq() < 1e-4) v.crossVectors(nW, _v2.set(0, 0, 1));
       v.normalize();
-      ups.push(v);
-      const ax = Math.abs(v.x) > Math.abs(v.z) ? new THREE.Vector3(Math.sign(v.x), 0, 0) : new THREE.Vector3(0, 0, Math.sign(v.z) || -1);
-      ups.push(ax, new THREE.Vector3(-ax.z, 0, ax.x));
-    } else ups.push(new THREE.Vector3(0, 1, 0));
+      const vl = dirLoc(v, new THREE.Vector3());
+      ups.push(vl);
+      const ua0 = (k + 1) % 3;
+      const va0 = (k + 2) % 3;
+      const ax = new THREE.Vector3();
+      if (Math.abs(vl.getComponent(ua0)) > Math.abs(vl.getComponent(va0))) ax.setComponent(ua0, Math.sign(vl.getComponent(ua0)));
+      else ax.setComponent(va0, Math.sign(vl.getComponent(va0)) || -1);
+      ups.push(ax, new THREE.Vector3().crossVectors(n, ax));
+    }
 
     const ua = (k + 1) % 3;
     const va = (k + 2) % 3;
@@ -220,18 +244,23 @@ export class PortalSystem {
       c[1] = THREE.MathUtils.clamp(c[1], lo[1], hi[1]);
       return c;
     };
-    let c = clampUV([hit.point[AXES[ua]], hit.point[AXES[va]]]);
-    const toWorld = (cc, out) => out.set(0, 0, 0).setComponent(k, plane).setComponent(ua, cc[0]).setComponent(va, cc[1]);
+    const hp = toLoc(_v.set(hit.point.x, hit.point.y, hit.point.z), _v2);
+    let c = clampUV([hp.getComponent(ua), hp.getComponent(va)]);
+    const toLocal0 = (cc, out) => out.set(0, 0, 0).setComponent(k, plane).setComponent(ua, cc[0]).setComponent(va, cc[1]);
+    const toWorld = (cc, out) => toWld(toLocal0(cc, out), out);
+    const rightW = dirWld(_right, new THREE.Vector3());
+    const upW = dirWld(_up, new THREE.Vector3());
 
     // 和同一平面上的其它门重叠时，把新门推开
     const others = this.list.filter((o) => o !== this.get(color) && o.placed);
     for (const other of others) {
-      if (!(Math.abs(other.normal.dot(n) - 1) < 1e-3 && Math.abs(other.signedDistance(toWorld(c, _v))) < 0.02)) continue;
-      const overlaps = (cc) => this._ellipsesOverlap(toWorld(cc, _v), _right, _up, HW, HH, other);
+      if (!(Math.abs(other.normal.dot(nW) - 1) < 1e-3 && Math.abs(other.signedDistance(toWorld(c, _v))) < 0.02)) continue;
+      const overlaps = (cc) => this._ellipsesOverlap(toWorld(cc, _v), rightW, upW, HW, HH, other);
       if (!overlaps(c)) continue;
-      const oc = [other.position.getComponent(ua), other.position.getComponent(va)];
-      let dx = c[0] - oc[0];
-      let dy = c[1] - oc[1];
+      const oc = toLoc(other.position, _v2);
+      const o2 = [oc.getComponent(ua), oc.getComponent(va)];
+      let dx = c[0] - o2[0];
+      let dy = c[1] - o2[1];
       let len = Math.hypot(dx, dy);
       if (len < 1e-3) {
         dx = _right.getComponent(ua);
@@ -262,11 +291,11 @@ export class PortalSystem {
     const world = this.game.world;
     for (const [sx, sy] of samples) {
       _v2.copy(pos)
-        .addScaledVector(_right, sx * HW)
-        .addScaledVector(_up, sy * HH)
-        .addScaledVector(n, 0.25);
+        .addScaledVector(rightW, sx * HW)
+        .addScaledVector(upW, sy * HH)
+        .addScaledVector(nW, 0.25);
       _ray.origin = { x: _v2.x, y: _v2.y, z: _v2.z };
-      _ray.dir = { x: -n.x, y: -n.y, z: -n.z };
+      _ray.dir = { x: -nW.x, y: -nW.y, z: -nW.z };
       const h = world.castRay(_ray, 0.35, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS | RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC, GROUPS.world, undefined, undefined, (col) => {
         const inf = this.game.colliderInfo.get(col.handle);
         return !inf || (inf.kind !== 'player' && inf.kind !== 'bridge');
@@ -275,7 +304,7 @@ export class PortalSystem {
         return { ok: false, reason: 'blocked' };
       }
     }
-    return { ok: true, position: pos, normal: n.clone(), up: _up.clone(), collider: hit.collider, size };
+    return { ok: true, position: pos, normal: nW.clone(), up: upW.clone(), collider: hit.collider, size };
   }
 
   _ellipsesOverlap(center, right, up, hw, hh, other) {

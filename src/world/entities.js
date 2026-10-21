@@ -18,6 +18,7 @@ import { getMaterials, brushGeometry, TEX_SCALE } from './materials.js';
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const Z = new THREE.Vector3(0, 0, 1);
+const _d = new THREE.Vector3();
 
 /** 让一个物体的本地 +Z 指向 dir */
 function faceDir(obj, dir) {
@@ -52,6 +53,7 @@ export class Cube {
       this.body
     );
     game.colliderInfo.set(this.collider.handle, { kind: 'cube', cube: this });
+    if (game.customGravity) this.body.setGravityScale(0, true);
     this.mesh = createCubeMesh(this.kind);
     this.clone = createCubeMesh(this.kind);
     this.clone.visible = false;
@@ -118,6 +120,9 @@ export class Button {
     this.threshold = this.heavy ? 3.5 : 0.5;
     this.radius = this.heavy ? 1.36 : 0.8;
     this.pos = new THREE.Vector3(...def.pos);
+    // up：按钮朝哪边（默认朝上；星球上是半径方向）
+    this.up = new THREE.Vector3(...(def.up ?? [0, 1, 0])).normalize();
+    const bq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), this.up);
     this.pressed = false;
     this.press = 0;
     const vis = createButtonMesh(this.heavy);
@@ -125,27 +130,29 @@ export class Button {
     this.plunger = vis.plunger;
     this.plungerMat = vis.plungerMat;
     this.group.position.copy(this.pos);
+    this.group.quaternion.copy(bq);
     game.levelGroup.add(this.group);
-    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(this.pos.x, this.pos.y + 0.08, this.pos.z));
+    const bpos = this.pos.clone().addScaledVector(this.up, 0.08);
+    const body = game.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(bpos.x, bpos.y, bpos.z).setRotation(bq));
     const col = game.world.createCollider(RAPIER.ColliderDesc.cylinder(0.08, this.radius + 0.1).setCollisionGroups(GROUPS.world), body);
     game.colliderInfo.set(col.handle, { kind: 'button', button: this });
   }
 
   update(dt, cubes, player) {
     let weight = 0;
+    const up = this.up;
     for (const c of cubes) {
-      const p = c.position;
-      const dx = p.x - this.pos.x;
-      const dz = p.z - this.pos.z;
-      const dy = p.y - this.pos.y;
+      _d.copy(c.position).sub(this.pos);
+      const dy = _d.dot(up);
+      const lat2 = _d.lengthSq() - dy * dy;
       const r = this.radius + c.half * 0.5;
-      if (dx * dx + dz * dz < r * r && dy > 0 && dy < c.half + 0.6) weight += c.weight;
+      if (lat2 < r * r && dy > 0 && dy < c.half + 0.6) weight += c.weight;
     }
-    const feet = player.position.y - player.footOffset;
-    const dx = player.position.x - this.pos.x;
-    const dz = player.position.z - this.pos.z;
+    _d.copy(player.position).addScaledVector(player.up, -player.footOffset).sub(this.pos);
+    const feet = _d.dot(up);
+    const lat2 = _d.lengthSq() - feet * feet;
     const r = this.radius * 0.94 + player.radius * 0.5;
-    if (dx * dx + dz * dz < r * r && feet > this.pos.y - 0.05 && feet < this.pos.y + 0.45) weight += player.scale ** 3;
+    if (lat2 < r * r && feet > -0.05 && feet < 0.45) weight += player.scale ** 3;
     const on = weight >= this.threshold;
     if (on !== this.pressed) {
       this.pressed = on;
@@ -581,20 +588,43 @@ export class Fizzler extends Volume {
 export class Exit extends Volume {
   constructor(game, def) {
     super(def);
+    this.game = game;
     this.group = createExitMesh(def.size ?? [2, 2.5, 2]);
     this.group.position.set(...def.pos);
+    // up：出口朝哪边（星球上是半径方向）；when：满足条件出口才会打开
+    if (def.up) this.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...def.up).normalize());
     game.levelGroup.add(this.group);
+  }
+  get active() {
+    return this.game.cond(this.def.when, true);
+  }
+  contains(p) {
+    return this.active && super.contains(p);
   }
   update(time) {
     const beam = this.group.userData.beam;
-    if (beam) beam.material.opacity = 0.06 + 0.04 * Math.sin(time * 3);
+    const on = this.active;
+    if (beam) beam.material.opacity = on ? 0.06 + 0.04 * Math.sin(time * 3) : 0.012;
+    const g = this.group.userData;
+    if (g.glow) {
+      g.glow.emissive.setHex(on ? 0x40ff80 : 0xff3a24);
+      g.glow.emissiveIntensity = on ? 3.2 : 1.2;
+    }
   }
 }
 
 export class Hazard extends Volume {
   constructor(game, def) {
     super(def);
-    this.group = createHazardMesh(def.size ?? [4, 1, 4]);
+    const size = def.size ?? [4, 1, 4];
+    this.group = createHazardMesh(size, !!def.pool);
+    // 贴在侧墙或天花板上的酸液：液面朝向 up（碰撞范围仍是 pos/size 这个方块）
+    if (def.up) {
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...def.up).normalize());
+      const ls = new THREE.Vector3(...size).applyQuaternion(q.clone().invert());
+      this.group = createHazardMesh([Math.abs(ls.x), Math.abs(ls.y), Math.abs(ls.z)], !!def.pool);
+      this.group.quaternion.copy(q);
+    }
     this.group.position.set(...def.pos);
     game.levelGroup.add(this.group);
   }

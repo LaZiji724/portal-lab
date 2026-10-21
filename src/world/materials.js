@@ -392,6 +392,35 @@ function applySet(mat, set, { normalScale = 1, aoIntensity = 1, roughness = 1, m
   mat.roughness = roughness;
   mat.metalness = metalness;
   mat.needsUpdate = true;
+  // 染过色的副本（星球表面）也跟着换贴图
+  for (const c of _cloneMap.get(mat) ?? []) {
+    c.map = mat.map;
+    c.normalMap = mat.normalMap;
+    c.normalScale?.copy(mat.normalScale);
+    c.aoMap = mat.aoMap;
+    c.aoMapIntensity = mat.aoMapIntensity;
+    c.roughnessMap = mat.roughnessMap;
+    c.metalnessMap = mat.metalnessMap;
+    c.roughness = mat.roughness;
+    c.metalness = mat.metalness;
+    c.needsUpdate = true;
+  }
+}
+
+const _cloneMap = new Map();
+/** 同一种材质染成别的颜色（星球表面用）；贴图和原材质保持同步 */
+const _tinted = new Map();
+export function tintedMaterial(base, hex) {
+  const key = base.uuid + ':' + hex;
+  let c = _tinted.get(key);
+  if (!c) {
+    c = base.clone();
+    c.color.setHex(hex);
+    if (!_cloneMap.has(base)) _cloneMap.set(base, []);
+    _cloneMap.get(base).push(c);
+    _tinted.set(key, c);
+  }
+  return c;
 }
 
 function upgradeMaterials(m) {
@@ -436,8 +465,11 @@ export const PORTALABLE = new Map([
 export const TEX_SCALE = { white: 2, whiteS: 0.9, whiteL: 4.4, metal: 2, concrete: 3, plate: 2 };
 
 /** 每 2 米重复一次贴图，并按世界坐标展开 UV，相邻墙体的纹理可以无缝衔接 */
-export function brushGeometry(size, pos, texScale = 2) {
-  const g = new THREE.BoxGeometry(size[0], size[1], size[2]);
+export function brushGeometry(size, pos, texScale = 2, shape = 'box') {
+  let g;
+  if (shape === 'sphere') g = new THREE.SphereGeometry(size[0] / 2, 72, 44);
+  else if (shape === 'cyl') g = new THREE.CylinderGeometry(size[0] / 2, size[0] / 2, size[1], 48, 1);
+  else g = new THREE.BoxGeometry(size[0], size[1], size[2]);
   const p = g.attributes.position;
   const nrm = g.attributes.normal;
   const uv = g.attributes.uv;
@@ -447,8 +479,21 @@ export function brushGeometry(size, pos, texScale = 2) {
     const z = p.getZ(i) + pos[2];
     const nx = Math.abs(nrm.getX(i));
     const ny = Math.abs(nrm.getY(i));
+    const nz = Math.abs(nrm.getZ(i));
     let u, v;
-    if (nx > 0.5) {
+    if (shape !== 'box') {
+      // 曲面：按法线最大的那个轴做方盒投影
+      if (nx >= ny && nx >= nz) {
+        u = z * Math.sign(nrm.getX(i) || 1);
+        v = y;
+      } else if (ny >= nz) {
+        u = x;
+        v = z;
+      } else {
+        u = -x * Math.sign(nrm.getZ(i) || 1);
+        v = y;
+      }
+    } else if (nx > 0.5) {
       u = z * Math.sign(nrm.getX(i));
       v = y;
     } else if (ny > 0.5) {

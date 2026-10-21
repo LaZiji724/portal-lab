@@ -53,7 +53,7 @@ export function addDressing(game, def, parent) {
   const accent = game.theme?.accent ?? 0x55c0ff;
   m.strip.color.setHex(accent).multiplyScalar(2.6);
 
-  const solids = def.brushes.filter((b) => SOLID.has(b.mat)).map((b) => ({ b, ...bounds(b) }));
+  const solids = def.brushes.filter((b) => SOLID.has(b.mat) && !b.rot && (b.shape ?? 'box') === 'box').map((b) => ({ b, ...bounds(b) }));
   // 地面：又宽又薄的方块；天花：同样的形状但离地面至少 2.4 米
   const floors = solids.filter((s) => s.b.size[1] <= 2 && s.b.size[0] >= 2 && s.b.size[2] >= 2);
   const walls = solids.filter((s) => s.b.size[1] >= 1.8);

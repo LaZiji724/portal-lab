@@ -22,17 +22,21 @@ node tools/mechtest.mjs                # 各个机制的单项测试
 
 `name` `hint` `gun`('blue'|'orange'|'both'|'none') `spawn{pos,yaw,scale}` `brushes[]` `entities[]`
 可选 `fog{color,near,far}`（无缝空间门/循环空间用来遮住无限递归）、`killY`（掉到这个高度以下就死，默认 -40）。
+重力相关：`gravityDir`（默认重力方向，如 [0,1,0] 掉向天花板）、`gravityMag`（倍数，0 = 失重；默认 1）、`killR`（离原点超过这个距离就死，用于星球/太空关）。
+天空：`sky{kind:'space'|'day'|'dusk', sun{dir,color,intensity}, top, horizon, bottom, stars, nebula}`；有 sky 的关卡不再是封闭房间，可以做大陆、星球、群岛。
 
 brush：`{pos,size,mat}`，mat ∈ white whiteS whiteL metal concrete glass grate bounce speed。
 只有 white/whiteS/whiteL 能开门；glass 挡人挡子弹但透激光；grate 挡人和方块，子弹和激光能穿过；
 bounce 弹跳凝胶（落地反弹、撞墙反弹）；speed 推进凝胶（最高 2.8 倍速，摩擦小）。
+可选：`shape`('box'|'cyl'|'sphere'，圆柱 size=[直径,高,直径]，球 size=[直径,…])、`rot`[x,y,z]（度，欧拉角 YXZ，做斜坡、多边形房间、圆厅）、`color`（十六进制染色）。
+弯曲/旋转后的 white 面板仍可开门，但 cyl/sphere 表面不行，要在上面贴 box 形的白板。
 
 ## 实体
 
 | type | 字段 |
 | --- | --- |
 | cube | pos, kind('normal'\|'prism'), scale, yaw |
-| button | id, pos, heavy（需要重量 3.5，即放大约 1.5 倍以上的方块/玩家）|
+| button | id, pos, heavy（需要重量 3.5，即放大约 1.5 倍以上的方块/玩家）, up（按钮朝向，贴天花板/星球用）|
 | door | pos, size, requires[]（全部满足才开，id 前加 `!` 表示取反）|
 | switch | id, pos, yaw, timer（秒；0 或省略=来回切换）|
 | laser | pos, dir, when[] |
@@ -41,8 +45,9 @@ bounce 弹跳凝胶（落地反弹、撞墙反弹）；speed 推进凝胶（最�
 | launcher | pos, target, time, when[]（弹射板，time 秒后落到 target）|
 | platform | pos, to, size, mat, period, phase, when[]（有 when 时按条件移动到 to，没有就来回往返）|
 | fizzler | pos, size, when[]（消散力场：人穿过会清掉自己开的门，方块会被销毁重生）|
-| hazard | pos, size（酸液，碰到就死）|
-| exit | pos, size |
+| hazard | pos, size, up, pool（酸液，碰到就死）|
+| exit | pos, size, up, when[] |
+| gravity | shape('box'\|'sphere'), pos, size / radius, dir（box：场内重力朝向）, g（倍数）, when[]（球形场重力朝球心，做小行星）|
 | light | pos, intensity, color, distance, shadow, fixture |
 | portal | color, pos, normal, up（固定传送门）|
 | gateway | a{pos,normal,up}, b{...}, size[w,h], sizeB, shape('rect'), frame, when[], oneWay('ab'\|'ba')（一对固定的空间门，两端尺寸不同时穿过会被放大/缩小）|

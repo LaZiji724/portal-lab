@@ -1,18 +1,18 @@
 // 39 矮人之光：棱镜的光从方块正中心射出，缝只有两指高；而唯一能把东西变小的那对门，还要带你去对面。
 import { box, room, wallWithHoles, panelX, panelZ, light, exit } from '../../levelkit.mjs';
-import { glow, orb, rug, plant, frameZ } from './deco.mjs';
+import { glow, orb, rug, plant, frameZ, WALLS, STONE, tint, FLOOR } from './deco.mjs';
 
 const brushes = [
   // ---- 大厅
-  ...room([-7, 7], [0, 5], [-6, 3], {}, ['zn']),
+  ...room([-7, 7], [0, 5], [-6, 3], WALLS, ['zn']),
   // 石墙：一道两指高的缝（贴地的窄缝，只有矮子的视线才对得上）+ 一扇玻璃窗
-  ...wallWithHoles('z', [-8, -6], [-7.5, 7.5], [0, 5], [[-0.5, 0.5, 0.55, 0.9], [-5, 5, 0.95, 3.2]]),
+  ...wallWithHoles('z', [-8, -6], [-7.5, 7.5], [0, 5], [[-0.5, 0.5, 0.55, 0.9], [-5, 5, 0.95, 3.2]], STONE),
   box(-5, 0.95, -6.06, 5, 3.2, -6, 'glass'),
   // 大厅里仅有的两块可开门的白板：一大一小
   panelX(-7, 1, [-4, 0], [0, 3]),
   panelX(7, -1, [-2, -0.8], [0, 1.5], 'whiteS'),
   // ---- 金库
-  ...room([-7, 7], [0, 5], [-20, -8], {}, ['zp']),
+  ...room([-7, 7], [0, 5], [-20, -8], WALLS, ['zp']),
   panelZ(-20, 1, [-3, 3], [0, 4]),
   // 隔墙：脚边一条 0.2 米高的缝，缝后面是接收器
   ...wallWithHoles('x', [5.0, 5.4], [-20.5, -7.5], [0, 5.2], [[-17.6, -14.4, 0, 0.2]]),

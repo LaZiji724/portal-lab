@@ -48,3 +48,10 @@ export function plant(x, z, s = 1, y = 0, leaf = 0x6aa86a) {
   for (const [dx, dy, dz, k] of puffs) out.push({ pos: [r(x + dx * s), r(y + dy * s), r(z + dz * s)], size: [r(k * s), r(k * s), r(k * s)], mat: 'grass', shape: 'sphere', color: leaf, deco: true });
   return out;
 }
+
+/** 第 8 章的墙：象牙色的石材（concrete 带染色的磨石），金色只留给点缀 */
+export const STONE = 'concrete';
+export const WALLS = { xn: STONE, xp: STONE, zn: STONE, zp: STONE };
+/** 给一块（地板）刷上暖色 */
+export const tint = (b, color) => ({ ...b, color });
+export const FLOOR = 0xc2a67c;

@@ -5,6 +5,7 @@
 - `def` 是关卡 JSON（和编辑器同一种格式），由 `../levelkit.mjs` 里的小函数拼出来。
 - `solve` 是这一关的自动通关脚本：`async ({ ev, shot }) => { ... }`，在无头浏览器里操作玩家，
   最后必须真的走进出口（`state === 'complete'`）。每一关都必须有脚本，用来证明它能解。
+第 6～8 章（28～42 关）只用前五章的机制（不用自定义重力和天空）；每章的辅助函数放在同名目录 `ch6/ ch7/ ch8/` 里，设计说明见各关文件开头的注释。
 
 ```
 node tools/build-levels.mjs            # 生成 src/levels/*.json 和 index.js

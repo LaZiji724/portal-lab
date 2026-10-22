@@ -1,6 +1,6 @@
 // 40 连环锁：三扇门、三个接收器、三束激光首尾相咬。一点火花点亮整圈，圈自己就能撑住；出口却要它全灭。
 import { box, room, wallWithHoles, light, exit } from '../../levelkit.mjs';
-import { glow, orb, plant, frameX, frameZ, WALLS, STONE, tint, FLOOR } from './deco.mjs';
+import { glow, orb, plant, frameX, frameZ, WALLS, STONE, tint, FLOOR, dress } from './deco.mjs';
 
 const AMBER = 0xffb347;
 
@@ -78,9 +78,9 @@ export default {
     hint: '三扇门各等着前一束光，像咬住自己尾巴的蛇。想想怎么把它点着，又怎么让它熄灭。',
     gun: 'none',
     killY: -20,
-    look: { hemi: 0.55, exposure: 0.98, bloom: 0.34 },
+    look: { hemi: 0.7, exposure: 0.95, bloom: 0.3 },
     spawn: { pos: [-8.5, 0, 4.5], yaw: 0 },
-    brushes,
+    brushes: dress(brushes),
     entities,
   },
   solve: async ({ ev, shot }) => {
@@ -124,13 +124,9 @@ export default {
       const pt = window.__pt;
       pt.drop(-16, -1.5, 8);
       pt.run(0.6);
-      const kk = () => window.__game.cubes[0].position.toArray().map((v) => +v.toFixed(2));
-      pt.log.push('afterdrop K ' + kk() + ' P ' + window.__game.player.position.toArray().map((v) => +v.toFixed(2)));
       if (!window.__pt.state().signals.q) throw new Error('q 没压下');
       pt.walkTo(-14, 3.5, 8, 0.2);
-      pt.log.push('atz K ' + kk());
       pt.run(2.5);
-      pt.log.push('end K ' + kk());
     });
     const s3 = await ev(() => window.__pt.state());
     if (s3.signals.c1 || s3.signals.c2 || s3.signals.c3) throw new Error('环没有熄灭：' + JSON.stringify(s3.signals));
@@ -139,7 +135,6 @@ export default {
       pt.walkTo(-13.5, -1.5, 8, 0.3);
       pt.walkTo(-13.5, -7, 8, 0.3);
       pt.walkTo(-18, -8, 8, 0.3);
-      pt.log.push('atX ' + JSON.stringify(window.__pt.state().signals) + JSON.stringify(window.__pt.state().doors));
       pt.walkTo(-18, -14.4, 8, 0.3);
       pt.run(0.5);
     });

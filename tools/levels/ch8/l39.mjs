@@ -1,6 +1,6 @@
 // 39 矮人之光：棱镜的光从方块正中心射出，缝只有两指高；而唯一能把东西变小的那对门，还要带你去对面。
 import { box, room, wallWithHoles, panelX, panelZ, light, exit } from '../../levelkit.mjs';
-import { glow, orb, rug, plant, frameZ, WALLS, STONE, tint, FLOOR } from './deco.mjs';
+import { glow, orb, rug, plant, frameZ, WALLS, STONE, tint, FLOOR, dress } from './deco.mjs';
 
 const brushes = [
   // ---- 大厅
@@ -17,7 +17,7 @@ const brushes = [
   // 隔墙：脚边一条 0.2 米高的缝，缝后面是接收器
   ...wallWithHoles('x', [5.0, 5.4], [-20.5, -7.5], [0, 5.2], [[-17.6, -14.4, 0, 0.2]]),
   // ---- 装饰：大厅
-  rug(0, -1.5, 9, 5, 0xd9c79a),
+  rug(0, -1.5, 9, 5, 0x3a4a78, 0, 'grass'),
   glow(-4.4, 0.012, -3.98, 4.4, 0.03, -3.94, 0xffd36b, 0.9),
   ...frameZ(-6, 1, [-0.5, 0.5], [0.55, 0.9], 0xffd36b, 0.06, 1.5, 0.05),
   ...frameZ(-6.06, 1, [-5, 5], [0.95, 3.2], 0xffd36b, 0.12, 1.2, 0.05),
@@ -56,9 +56,9 @@ export default {
     hint: '光从棱镜的正中心射出，而缝只有两指高：这块棱镜够矮吗？还有，你自己是怎么到缝那一头去的？',
     gun: 'both',
     killY: -20,
-    look: { hemi: 0.6, exposure: 0.98, bloom: 0.3 },
+    look: { hemi: 0.7, exposure: 0.95, bloom: 0.28 },
     spawn: { pos: [0, 0, 2], yaw: 0 },
-    brushes,
+    brushes: dress(brushes),
     entities,
   },
   solve: async ({ ev, shot }) => {

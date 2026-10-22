@@ -1,7 +1,7 @@
 // 42 小人国：终章。大厅大得不合常理——不是大厅变大了，是你变小了。
 // 东墙的小门 b 和西墙的大门 a 是同一对空间门（高度比 2:1）：从小门进、大门出，你长大一倍；反过来缩小一半。
 import { box, room, wallWithHoles, light, exit } from '../../levelkit.mjs';
-import { glow, orb, plant, frameX, slab } from './deco.mjs';
+import { glow, orb, plant, frameX, slab, dress } from './deco.mjs';
 
 const CYAN = 0x66e0ff;
 const WARM = 0xfff0d6;
@@ -93,7 +93,7 @@ export default {
     look: { hemi: 0.7, exposure: 0.92, bloom: 0.34, env: 0.7 },
     fog: { color: 0xe6dcc6, near: 7, far: 70 },
     spawn: { pos: [3.5, 0, 3.5], yaw: 90, scale: 0.25 },
-    brushes,
+    brushes: dress(brushes),
     entities,
   },
   solve: async ({ ev, shot }) => {

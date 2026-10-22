@@ -15,7 +15,7 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
   add(
     {
       name: '自断后路',
-      hint: '松开踏板，门依然开着——是谁在替你撑着？出口那扇门，似乎有它自己的脾气。',
+      hint: '松开踏板，门依然开着。是谁在撑着它？而出口的大门，似乎有自己的脾气。',
       gun: 'none',
       killY: -20,
       spawn: { pos: [-4, 0, 11], yaw: 0 },
@@ -145,7 +145,7 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
   add(
     {
       name: '画后之室',
-      hint: '拉杆让出口亮了，壁龛却变成了一幅画。画盖住了房间，可房间真的消失了吗？',
+      hint: '拉杆让出口亮了，壁龛却成了一幅画。画盖住的房间，真的不在了吗？',
       gun: 'both',
       killY: -20,
       spawn: { pos: [0, 0, 5.5], yaw: 0 },
@@ -344,7 +344,7 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
   add(
     {
       name: '扳机',
-      hint: '弹射板没有一点反应。站上去，墙上的窗就开了；窗里的光，能不能请手里的东西帮个忙？',
+      hint: '弹射板毫无反应。站上去，墙上的窗开了：窗里那道光，要照到哪儿才算数？',
       gun: 'none',
       killY: -20,
       spawn: { pos: [0, 0, 5.5], yaw: 0 },
@@ -466,7 +466,8 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
         ...ex.entities,
         light(0, 33, 0, 110, { color: WARM, shadow: true, distance: 60 }),
         light(-9, 6, 0, 22, { color: WARM }),
-        light(TX0 + 4, 18, 0, 30, { color: AMBER, distance: 30 }),
+        light(TX0 + 5, 19, 0, 70, { color: 0xffd9a0, distance: 34 }),
+        light(TX0 + 5, 16, 3, 10, { color: AMBER, distance: 12, fixture: false }),
         light(3, 2.6, -7, 8, { color: AMBER, fixture: false }),
       ],
     },

@@ -1,19 +1,20 @@
 // 41 登楼借影：一块方块要先当砝码、再当影子、最后当钥匙。踏板在楼下，你却要在楼上。
 import { box, room, wallWithHoles, panelZ, light, exit } from '../../levelkit.mjs';
-import { glow, orb, plant, frameZ, slab } from './deco.mjs';
+import { glow, orb, plant, frameZ, slab, WALLS, STONE, tint, FLOOR } from './deco.mjs';
 
-const TOP = 7.8; // 阳台、出口台、升降台落点的高度
+const TOP = 7.8; // 阳台、出口台的高度
+const LIFT_TOP = 7.05; // 升降台升到顶时台面的高度：比阳台低 0.75 米，要跳一下才上得去（平台刚停下时玩家会被卡住，跳起来就好了）
 
 const brushes = [
   // ---- 大厅（13 米高）。北墙在出口门的位置开一个洞
-  ...room([-10, 13], [0, 13], [-12, 12], {}, ['zn']),
-  ...wallWithHoles('z', [-12.5, -12], [-10.5, 13.5], [0, 13.5], [[9, 12, TOP, TOP + 3]]),
+  ...room([-10, 13], [0, 13], [-12, 12], WALLS, ['zn']),
+  ...wallWithHoles('z', [-12.5, -12], [-10.5, 13.5], [0, 13.5], [[9, 12, TOP, TOP + 3]], STONE),
   // 阳台块 W：南面留一个 3x3 的升降井（x -7.5..-4.5，z -7..-4），井里的升降台载你上楼
-  box(-10, 0, -12, -7.5, TOP, -4),
-  box(-4.5, 0, -12, -3, TOP, -4),
-  box(-7.5, 0, -12, -4.5, TOP, -7),
+  box(-10, 0, -12, -7.5, TOP, -4, STONE),
+  box(-4.5, 0, -12, -3, TOP, -4, STONE),
+  box(-7.5, 0, -12, -4.5, TOP, -7, STONE),
   // 出口台 E
-  box(7, 0, -12, 13, TOP, -4),
+  box(7, 0, -12, 13, TOP, -4, STONE),
   // 仅有的两块白板：PB 在升降井旁边的立柱南面（楼下），PT 在阳台上方的北墙高处
   panelZ(-4, 1, [-4.4, -3.1], [0.15, 2.5]),
   panelZ(-12, 1, [-8, -6], [8.0, 10.4]),
@@ -21,7 +22,7 @@ const brushes = [
   box(-3, TOP - 0.1, -8.55, 7, 11.5, -8.5, 'glass'),
   box(-3, TOP - 0.1, -7.5, 7, 11.5, -7.45, 'glass'),
   // 出口门后的走廊
-  ...room([9, 12], [TOP, TOP + 3], [-17.5, -12.5], {}, ['zp']),
+  ...room([9, 12], [TOP, TOP + 3], [-17.5, -12.5], WALLS, ['zp']),
   // ---- 装饰：升降井的光、踏板的“电线”、台边的金线、盆栽
   glow(-7.5, 0.02, -6.96, -7.46, TOP, -6.9, 0xffd36b, 0.8),
   glow(-4.54, 0.02, -6.96, -4.5, TOP, -6.9, 0xffd36b, 0.8),
@@ -45,8 +46,8 @@ const brushes = [
 ];
 
 const entities = [
-  // 升降台：踏板 h 被压住才上升（静止时台面与地面齐平，升到顶刚好与阳台齐平）
-  { type: 'platform', pos: [-6, -0.18, -5.2], to: [-6, TOP - 0.18, -5.2], size: [2.9, 0.4, 3.4], speed: 1.5, when: ['h'] },
+  // 升降台：踏板 h 被压住才上升（静止时台面与地面齐平，升到顶比阳台低一截）
+  { type: 'platform', pos: [-6, -0.18, -5.2], to: [-6, LIFT_TOP - 0.2, -5.2], size: [2.9, 0.4, 3.4], speed: 1.5, when: ['h'] },
   { type: 'button', id: 'h', pos: [-4.0, 0, -2.7] },
   { type: 'button', id: 'f', pos: [10, TOP, -5.6] },
   { type: 'cube', pos: [-3.5, 0.31, 1.5] },
@@ -98,13 +99,17 @@ export default {
     await ev(() => window.__game.debugRun(7));
     await shot('c8-41-top');
     const top = await ev(() => window.__pt.state());
-    if (top.pos[1] < 8.5) throw new Error('没升上阳台：' + JSON.stringify(top.pos));
+    if (top.pos[1] < 7.5) throw new Error('没升上阳台：' + JSON.stringify(top.pos));
     // 3. 阳台上：在高处的白板 PT 打橙门，隔着传送门把方块从踏板上"拉"上来
     await ev(() => {
       const pt = window.__pt;
       const g = window.__game;
+      // 台面比阳台低 0.75 米：走到台边，朝阳台跳上去
+      pt.walkTo(-5, -6.2, 4, 0.1);
       g.player.yaw = 0;
-      for (let i = 0; i < 40; i++) g.debugRun(1 / 30, { x: 0, y: 1 });
+      g.debugRun(1 / 30, { x: 0, y: 1 }, true);
+      for (let i = 0; i < 45; i++) g.debugRun(1 / 30, { x: 0, y: 1 });
+      if (g.player.position.y < 8.5) throw new Error('没能跳上阳台：' + g.player.position.toArray());
       pt.log.push('A ' + g.player.position.toArray().map((v) => +v.toFixed(2)));
       pt.walkTo(-7, -9, 6, 0.3);
       pt.log.push('B ' + g.player.position.toArray().map((v) => +v.toFixed(2)));

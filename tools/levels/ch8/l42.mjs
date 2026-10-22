@@ -16,22 +16,22 @@ const pencil = (x, z, len = 1.6, yawDeg = 0) => {
   return [
     cyl(0, len, 0.09, 0xf2c230),
     cyl(-len / 2 - 0.05, 0.1, 0.09, 0xd98a96),
-    cyl(-len / 2 + 0.07, 0.06, 0.092, 0xb8bcc4, 'plate'),
+    cyl(-len / 2 + 0.07, 0.06, 0.092, 0xb8bcc4, 'concrete'),
     cyl(len / 2 + 0.04, 0.08, 0.05, 0x3a3a3a),
   ];
 };
 
 const brushes = [
   // ---- 大厅：9 x 10 米，4.5 米高（对 0.25 倍的人来说是 36 x 40 米的庞然大物）
-  ...room([-4.5, 4.5], [0, 4.5], [-5, 5], {}, ['xn', 'xp', 'zn', 'floor']),
-  box(-6, -0.5, -5.5, 6, 0, 5.5, 'concrete'),
+  ...room([-4.5, 4.5], [0, 4.5], [-5, 5], { xn: 'concrete', xp: 'concrete', zn: 'concrete', zp: 'concrete' }, ['xn', 'xp', 'zn', 'floor']),
+  { ...box(-6, -0.5, -5.5, 6, 0, 5.5, 'concrete'), color: 0xc2a67c },
   // 西墙：大门 a（2 x 3）；东墙：小门 b（1 x 1.5）。门洞后都留 1 米深的壁龛
-  ...wallWithHoles('x', [-5.5, -4.5], [-5.5, 5.5], [0, 4.5], [[1.5, 3.5, 0, 3]]),
+  ...wallWithHoles('x', [-5.5, -4.5], [-5.5, 5.5], [0, 4.5], [[1.5, 3.5, 0, 3]], 'concrete'),
   box(-6, 0, -5.5, -5.5, 4.5, 5.5, 'concrete'),
-  ...wallWithHoles('x', [4.5, 5.5], [-5.5, 5.5], [0, 4.5], [[-3, -2, 0, 1.5]]),
+  ...wallWithHoles('x', [4.5, 5.5], [-5.5, 5.5], [0, 4.5], [[-3, -2, 0, 1.5]], 'concrete'),
   box(5.5, 0, -5.5, 6, 4.5, 5.5, 'concrete'),
   // 北墙：踢脚线高度的老鼠洞（0.7 米高），洞口上方留着墙，门往上缩进去
-  ...wallWithHoles('z', [-5.5, -5], [-5.5, 5.5], [0, 4.5], [[2.5, 3.5, 0, 0.7]]),
+  ...wallWithHoles('z', [-5.5, -5], [-5.5, 5.5], [0, 4.5], [[2.5, 3.5, 0, 0.7]], 'concrete'),
   // ---- 老鼠洞：一条 4 米长、0.75 米高的小走廊，通到一间暖暖的小屋
   box(2.5, -0.5, -10, 3.5, 0, -5.5, 'concrete'),
   box(2.4, 0, -10, 2.5, 0.75, -5.5),
@@ -90,7 +90,7 @@ export default {
     hint: '你有没有想过，是房间太大了，还是你太小了？那两扇发光的门，值得都走一遍。',
     gun: 'none',
     killY: -20,
-    look: { hemi: 0.6, exposure: 1.0, bloom: 0.34 },
+    look: { hemi: 0.7, exposure: 0.92, bloom: 0.34, env: 0.7 },
     fog: { color: 0xe6dcc6, near: 7, far: 70 },
     spawn: { pos: [3.5, 0, 3.5], yaw: 90, scale: 0.25 },
     brushes,

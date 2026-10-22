@@ -114,6 +114,7 @@ export class UI {
         <div class="screen" id="complete"><div class="card">
           <h2 class="ctitle">关卡完成</h2>
           <p class="subtitle ctext"></p>
+          <div class="reveal" hidden><b>原来如此</b><span></span></div>
           <button class="btn primary" data-act="next">下一关</button>
           <button class="btn" data-act="restart">再玩一次</button>
           <button class="btn" data-act="menu">返回主菜单</button>
@@ -363,6 +364,10 @@ export class UI {
     el.querySelector('.ctext').textContent = this.custom || !LEVELS[index]
       ? `自定义关卡完成，用时 ${t.toFixed(1)} 秒。`
       : `「${LEVELS[index].name}」用时 ${t.toFixed(1)} 秒。${last ? '你已经掌握了传送门的全部诀窍。' : ''}`;
+    const rv = el.querySelector('.reveal');
+    const reveal = this.custom ? '' : LEVELS[index]?.reveal ?? '';
+    rv.hidden = !reveal;
+    rv.querySelector('span').textContent = reveal;
     el.querySelector('[data-act="next"]').textContent = this.custom ? '回到编辑器' : last ? '返回主菜单' : '下一关';
     setTimeout(() => this.show('complete'), 400);
   }

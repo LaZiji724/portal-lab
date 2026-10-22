@@ -273,8 +273,7 @@ const COLD = 0x7fd8ff;
         ...planter(-11.2, -3.2, 0, 1),
         ...planter(13.2, 3.2, 0, 1),
         ...planter(7, 3.2, 0, 0.9),
-        strip(-11.95, 2.6, -2.6, -11.9, 3.5, -2.55, COLD, 1.2),
-        strip(-11.95, 2.6, 2.55, -11.9, 3.5, 2.6, COLD, 1.2),
+        strip(-11.95, 0, -0.8, -11.45, 0.012, 0.8, COLD, 1.4),
         { pos: [10.5, 0.01, 2.4], size: [2.1, 0.02, 2.1], mat: 'glow', shape: 'cyl', color: COLD, intensity: 0.7, deco: true },
       ],
       entities: [
@@ -331,6 +330,83 @@ const COLD = 0x7fd8ff;
         if (!g.signals.get('f')) throw new Error('方块没落在按钮上');
         pt.walkTo(10.5, -3, 6, 0.3);
         pt.walkTo(10.5, -7.5, 6, 0.2);
+        pt.run(0.3);
+      });
+    }
+  );
+}
+
+// ================================================================ 31 侧身的桥
+// 深渊中央的小岛上立着一道从天花板垂下来的光幕，像一堵毫无用处的墙。
+// 光桥只是一张固体的光片，竖着就是墙：用传送门把它「放倒」——
+// 光幕落进岛上的门，从墙上的门里横着长出来，就成了一条通向对岸的路。
+{
+  add(
+    {
+      name: '侧身的桥',
+      hint: '那道光幕是实心的，可它立在了没用的地方。光桥能穿过传送门，出来时朝向哪边？',
+      gun: 'both',
+      killY: -20,
+      spawn: { pos: [-10, 1.2, 3], yaw: -90 },
+      brushes: [
+        ...room([-14, 16], [-6, 6], [-5, 5], {}, ['floor']),
+        box(-14.5, -6.5, -5.5, 16.5, -6, 5.5, 'concrete'),
+        // 起点：一座 1.2 米高的台子，台边离西墙 0.6 米
+        box(-14, -6, -5, -8, 0, 5, 'concrete'),
+        box(-13.4, 0, -5, -9, 1.2, 5, 'concrete'),
+        // 对岸，和台子一样高
+        box(8, -6, -5, 16, 1.2, 5, 'concrete'),
+        // 深渊中央的小岛
+        box(-1, -6, -1.5, 1, 0, 1.5, 'concrete'),
+        // 白板：岛上的、西墙上的，以及三块「看上去一样」的
+        panelY(0, 1, [-0.65, 0.65], [-1.15, 1.15]),
+        panelX(-14, 1, [-0.65, 0.65], [0.1, 2.4]),
+        panelZ(-5, 1, [-12.2, -10.9], [2.0, 4.3]),
+        panelY(6, -1, [-12.5, -11.2], [-1.15, 1.15]),
+        panelY(1.2, 1, [-12.2, -10.9], [-3.9, -1.6]),
+        // 岛上白板外的一圈光框：光幕要落在这里
+        strip(-0.78, 0, -1.3, -0.7, 0.02, 1.3, COLD, 1.6),
+        strip(0.7, 0, -1.3, 0.78, 0.02, 1.3, COLD, 1.6),
+        strip(-0.7, 0, -1.3, 0.7, 0.02, -1.22, COLD, 1.6),
+        strip(-0.7, 0, 1.22, 0.7, 0.02, 1.3, COLD, 1.6),
+        { pos: [0, -5.85, 0], size: [16, 0.3, 10], mat: 'acid', color: 0x2f9a6a, intensity: 0.12, deco: true },
+        ...planter(-13.2, 4.2, 0, 0.9),
+        ...planter(-13.2, -4.2, 0, 0.9),
+        ...planter(15.3, 4.2, 1.2, 0.9),
+        ...planter(15.3, -4.2, 1.2, 0.9),
+        strip(-13.95, 0.2, 4.0, -13.9, 1.1, 4.05, COLD, 1.2),
+      ],
+      entities: [
+        { type: 'bridge', pos: [0, 5.85, 0], dir: [0, -1, 0], up: [0, 0, -1] },
+        { type: 'hazard', pos: [0, -5, 0], size: [16, 1.5, 10], hidden: true },
+        exit(14, 1.2, 0, [2, 2.5, 2]),
+        light(-10, 5.6, 0, 40, { color: 0xcfe6ff, distance: 26 }),
+        light(0, 5.6, 0, 34, { color: 0xb8dcff, distance: 26 }),
+        light(12, 5.6, 0, 34, { color: 0xcfe6ff, distance: 24 }),
+        light(0, -4.4, 0, 14, { color: 0x6dffa8, fixture: false, distance: 14 }),
+        light(14, 3.4, 0, 8, { fixture: false, distance: 8 }),
+      ],
+    },
+    async ({ ev, shot }) => {
+      await shot('c6-4-start');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        pt.walkTo(-10, 0, 5, 0.2);
+        pt.face(0, 0);
+        if (!pt.fire('blue', [0, 0, 0])) throw new Error('岛上的白板没能开门');
+        if (!pt.fire('orange', [-14, 1.25, 0])) throw new Error('西墙的白板没能开门');
+        pt.run(0.8);
+        const parts = g.bridges[0].parts.length;
+        if (parts < 2) throw new Error('光桥没有被折过去 parts=' + parts);
+      });
+      await shot('c6-4-bridge');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        g.player.pitch = 0;
+        pt.walkDir(-90, 10, (gg) => gg.player.position.x > 13 || gg.player.position.y < -1);
+        pt.walkTo(14, 0, 4, 0.3);
         pt.run(0.3);
       });
     }

@@ -237,4 +237,104 @@ const COLD = 0x7fd8ff;
   );
 }
 
+// ================================================================ 30 暗中成桥
+// 深渊对面的接收器被一道激光照着，而光桥只在「没被照到」时才会出现——光一灭，桥才有。
+// 墙边的架子正好够把方块放进光束里挡住它，可终点的按钮也要这块方块：
+// 方块还会投下影子，把它举在光束里，一路走过去，影子到哪里，桥就到哪里。
+{
+  add(
+    {
+      name: '暗中成桥',
+      hint: '桥只在对面没被照到时才存在。那块挡光的东西，不一定非要放着不动。',
+      gun: 'none',
+      killY: -20,
+      spawn: { pos: [-10.5, 0, -2.5], yaw: -90 },
+      brushes: [
+        ...room([-12, 14], [-6, 5], [-4, 4], {}, ['floor', 'zn']),
+        ...wallWithHoles('z', [-4.5, -4], [-12.5, 14.5], [-6, 5.5], [[9, 12, 0, 3]]),
+        box(-12.5, -6.5, -4.5, 14.5, -6, 4.5, 'concrete'),
+        // 起点平台和对岸平台
+        box(-12, -6, -4, -6, 0, 4, 'concrete'),
+        box(6, -6, -4, 14, 0, 4, 'concrete'),
+        // 墙上的架子，正好在光束的高度
+        box(-11.9, 1.6, -0.3, -10.7, 1.7, 0.3, 'concrete'),
+        // 深渊上的两片玻璃：给桥围出一条 1.1 米宽的走廊
+        box(-6, -6, -0.6, 6, 3, -0.55, 'glass'),
+        box(-6, -6, 0.55, 6, 3, 0.6, 'glass'),
+        // 酸池
+        { pos: [0, -5.85, 0], size: [12, 0.3, 8], mat: 'acid', color: 0x2f9a6a, intensity: 0.12, deco: true },
+        // 出口走廊
+        box(8, -0.5, -9.5, 13, 0, -4.5, 'concrete'),
+        box(8, 3, -9.5, 13, 3.5, -4.5),
+        box(7.5, 0, -9.5, 8, 3.5, -4.5),
+        box(13, 0, -9.5, 13.5, 3.5, -4.5),
+        box(7.5, 0, -10, 13.5, 3.5, -9.5),
+        // 陈设
+        ...planter(-11.2, -3.2, 0, 1),
+        ...planter(13.2, 3.2, 0, 1),
+        ...planter(7, 3.2, 0, 0.9),
+        strip(-11.95, 2.6, -2.6, -11.9, 3.5, -2.55, COLD, 1.2),
+        strip(-11.95, 2.6, 2.55, -11.9, 3.5, 2.6, COLD, 1.2),
+        { pos: [10.5, 0.01, 2.4], size: [2.1, 0.02, 2.1], mat: 'glow', shape: 'cyl', color: COLD, intensity: 0.7, deco: true },
+      ],
+      entities: [
+        { type: 'bridge', pos: [-11.7, 0.02, 0], dir: [1, 0, 0], when: ['!c'] },
+        { type: 'laser', pos: [-11.7, 2.0, 0], dir: [1, 0, 0] },
+        { type: 'catcher', id: 'c', pos: [13.95, 2.0, 0], normal: [-1, 0, 0] },
+        { type: 'cube', pos: [-10.5, 0.31, 2.5] },
+        { type: 'button', id: 'f', pos: [10.5, 0, 2.4] },
+        { type: 'door', pos: [10.5, 1.5, -4.25], size: [3, 3, 0.3], requires: ['f'] },
+        exit(10.5, 0, -7.5, [2, 2.5, 2]),
+        light(-8.5, 4.6, 0, 36, { color: 0xcfe6ff, distance: 24 }),
+        light(0, 4.6, 0, 40, { color: 0xb8dcff, distance: 28 }),
+        light(10.5, 4.6, 0, 36, { color: 0xcfe6ff, distance: 24 }),
+        light(0, -4.6, 0, 14, { color: 0x6dffa8, fixture: false, distance: 14 }),
+        light(10.5, 2.6, -7.5, 8, { fixture: false, distance: 8 }),
+      ],
+    },
+    async ({ ev, shot }) => {
+      await shot('c6-3-start');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        pt.run(0.4);
+        if (!g.signals.get('c')) throw new Error('接收器一开始应该被照亮');
+        pt.walkTo(-10.5, 1.3, 6, 0.2);
+        const c = g.cubes[0].position.clone();
+        if (!pt.use([c.x, c.y, c.z])) throw new Error('没拿到方块');
+        pt.walkTo(-10.2, 0, 4, 0.1);
+        g.player.yaw = (-90 * Math.PI) / 180;
+        g.player.pitch = (12 * Math.PI) / 180;
+        g.player.updateCamera();
+        pt.run(0.6);
+        if (g.signals.get('c')) throw new Error('方块没挡住光束');
+      });
+      await shot('c6-3-shadow');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        for (let i = 0; i < 400 && g.state === 'playing' && g.player.position.x < 7.4; i++) {
+          g.debugRun(1 / 30, { x: 0, y: 1 });
+          if (g.player.position.y < -1) throw new Error('从桥上掉下去了 x=' + g.player.position.x);
+          if (!g.player.held) throw new Error('方块在桥上掉了');
+        }
+        if (g.player.position.x < 7) throw new Error('没走过去 ' + g.player.position.x);
+      });
+      await shot('c6-3-across');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        g.player.pitch = 0;
+        pt.walkTo(9.0, 2.4, 5, 0.2);
+        pt.drop(10.5, 2.4);
+        pt.run(0.6);
+        if (!g.signals.get('f')) throw new Error('方块没落在按钮上');
+        pt.walkTo(10.5, -3, 6, 0.3);
+        pt.walkTo(10.5, -7.5, 6, 0.2);
+        pt.run(0.3);
+      });
+    }
+  );
+}
+
 export default levels;

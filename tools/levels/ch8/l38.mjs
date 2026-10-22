@@ -1,6 +1,6 @@
 // 38 尺度环：一间没有传送枪的房间，东墙的大门和西墙脚下的小窗其实是同一个洞的两头。
 import { box, room, wallWithHoles, light, exit } from '../../levelkit.mjs';
-import { glow, orb, rug, plant, frameX, WALLS, STONE, tint, FLOOR } from './deco.mjs';
+import { glow, orb, rug, plant, frameX, WALLS, STONE, tint, FLOOR, dress } from './deco.mjs';
 
 const WARM = 0xffe2b0;
 
@@ -21,7 +21,7 @@ const brushes = [
   box(-2.9, 1.0, -9.9, -1.1, 1.3, -5.5, STONE),
   box(-2.9, 0, -9.9, -1.1, 1.3, -9.6, STONE),
   // ---- 装饰
-  rug(0, 0.6, 13.6, 3.2, 0xd9c79a),
+  rug(0, 0.6, 13.6, 3.2, 0x3a4a78, 0, 'grass'),
   glow(-6.8, 0.012, -1.02, 6.8, 0.03, -0.98, 0xffd36b, 1.0),
   glow(-6.8, 0.012, 2.18, 6.8, 0.03, 2.22, 0xffd36b, 1.0),
   ...frameX(8, -1, [-3.5, -0.5], [0, 3]),
@@ -59,9 +59,9 @@ export default {
     hint: '先走进那扇大门看看。再想想：同一个洞，换个方向，对人和对方块是不是一回事？',
     gun: 'none',
     killY: -20,
-    look: { hemi: 0.6, exposure: 0.98, bloom: 0.3 },
+    look: { hemi: 0.7, exposure: 0.95, bloom: 0.28 },
     spawn: { pos: [0, 0, 3], yaw: 0 },
-    brushes,
+    brushes: dress(brushes),
     entities,
   },
   solve: async ({ ev, shot }) => {
@@ -95,9 +95,8 @@ export default {
       g.player.pitch = -0.75;
       pt.run(0.2);
       for (let i = 0; i < 160 && g.player.position.x > -6.9; i++) g.debugRun(1 / 60, { x: 0, y: 1 });
-      for (let q = 0; q < 8; q++) { pt.run(0.1); pt.log.push('q' + q + ' ' + g.cubes[0].position.toArray().map((v) => +v.toFixed(2)) + ' ' + g.player.pitch.toFixed(2)); }
+      pt.run(0.8);
       const k = g.cubes[0];
-      pt.log.push('scale ' + g.player.scale + ' held K ' + k.position.toArray().map((v) => +v.toFixed(2)) + ' P ' + g.player.position.toArray().map((v) => +v.toFixed(2)));
       if (!g.player.held || k.scale < 2) throw new Error('方块没有变大：' + k.scale + ' ' + g.player.held);
     });
     await shot('c8-38-giant');
@@ -112,14 +111,9 @@ export default {
     await ev(() => {
       const pt = window.__pt;
       const g = window.__game;
-      const kp = () => g.cubes[0].position.toArray().map((v) => +v.toFixed(2));
-      pt.log?.push('K0 ' + kp());
       pt.walkTo(-4, 2.6, 8, 0.4);
-      pt.log?.push('K1 ' + kp());
       pt.walkTo(3, 3, 8, 0.4);
-      pt.log?.push('K2 ' + kp() + ' p ' + g.player.position.toArray().map((v) => +v.toFixed(1)));
       pt.walkTo(6.6, 0.6, 5, 0.3);
-      pt.log?.push('K3 ' + kp());
       pt.walkTo(7.2, -1.0, 4, 0.15);
       pt.walkDir(-90, 3, (gg) => gg.player.scale < 0.5 || gg.state !== 'playing');
       pt.run(0.4);

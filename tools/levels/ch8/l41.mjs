@@ -1,6 +1,6 @@
 // 41 登楼借影：一块方块要先当砝码、再当影子、最后当钥匙。踏板在楼下，你却要在楼上。
 import { box, room, wallWithHoles, panelZ, light, exit } from '../../levelkit.mjs';
-import { glow, orb, plant, frameZ, slab, WALLS, STONE, tint, FLOOR } from './deco.mjs';
+import { glow, orb, plant, frameZ, slab, WALLS, STONE, tint, FLOOR, dress } from './deco.mjs';
 
 const TOP = 7.8; // 阳台、出口台的高度
 const LIFT_TOP = 7.05; // 升降台升到顶时台面的高度：比阳台低 0.75 米，要跳一下才上得去（平台刚停下时玩家会被卡住，跳起来就好了）
@@ -77,9 +77,9 @@ export default {
     hint: '一块方块要干好几件事，可它偏偏压在楼下的踏板上。想想怎么让它和你在同一层。',
     gun: 'both',
     killY: -30,
-    look: { hemi: 0.6, exposure: 1.0, bloom: 0.34 },
+    look: { hemi: 0.7, exposure: 0.95, bloom: 0.3 },
     spawn: { pos: [-1, 0, 6], yaw: 0 },
-    brushes,
+    brushes: dress(brushes),
     entities,
   },
   solve: async ({ ev, shot }) => {
@@ -117,15 +117,12 @@ export default {
       g.debugRun(1 / 30, { x: 0, y: 1 }, true);
       for (let i = 0; i < 45; i++) g.debugRun(1 / 30, { x: 0, y: 1 });
       if (g.player.position.y < 8.5) throw new Error('没能跳上阳台：' + g.player.position.toArray());
-      pt.log.push('A ' + g.player.position.toArray().map((v) => +v.toFixed(2)));
       pt.walkTo(-8.8, -9, 6, 0.3);
-      pt.log.push('B ' + g.player.position.toArray().map((v) => +v.toFixed(2)));
       if (!pt.fire('orange', [-8.8, 9.2, -12])) throw new Error('橙门没打上 PT：' + JSON.stringify(pt.why('orange', [-8.8, 9.2, -12])));
       pt.walkTo(-8.8, -11.3, 6, 0.1);
       g.player.yaw = 0;
       g.player.pitch = -0.61;
       g.debugRun(0.2);
-      pt.log.push('C ' + g.player.position.toArray().map((v) => +v.toFixed(2)) + ' ' + JSON.stringify(g.cubes[0].position.toArray().map((v) => +v.toFixed(2))));
       g.use();
       g.debugRun(0.5);
       if (!g.player.held) throw new Error('没能把方块拉上来：' + g.cubes[0].position.toArray());

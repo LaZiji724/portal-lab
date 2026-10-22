@@ -55,3 +55,6 @@ export const WALLS = { xn: STONE, xp: STONE, zn: STONE, zp: STONE };
 /** 给一块（地板）刷上暖色 */
 export const tint = (b, color) => ({ ...b, color });
 export const FLOOR = 0xc2a67c;
+export const WALLTINT = 0xdcd0b6;
+/** 给没染色的石墙/石块统一染上象牙色（地板、装饰不动） */
+export const dress = (list) => list.map((b) => (b.mat === 'concrete' && !b.color && !b.deco ? { ...b, color: b.pos[1] < 0 && b.size[1] <= 0.6 ? FLOOR : WALLTINT } : b));

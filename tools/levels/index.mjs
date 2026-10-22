@@ -10,6 +10,7 @@ const FILES = [
   ['第 7 章 · 因果', './ch7.mjs'],
   ['第 8 章 · 顿悟', './ch8.mjs'],
 ];
+import reveals from './reveals.mjs';
 const only = process.env.ONLY ? process.env.ONLY.split(',').map(Number) : null;
 
 export const CHAPTERS = [];
@@ -27,7 +28,7 @@ for (const [i, [title, file]] of FILES.entries()) {
 export function allLevels() {
   const out = [];
   CHAPTERS.forEach((c, ci) => {
-    for (const l of c.levels) out.push({ ...l, def: { ...l.def, chapter: ci }, chapter: ci, num: c.num });
+    for (const l of c.levels) out.push({ ...l, def: { ...l.def, chapter: ci, ...(reveals[l.def.name] ? { reveal: reveals[l.def.name] } : {}) }, chapter: ci, num: c.num });
   });
   return out;
 }

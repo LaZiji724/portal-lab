@@ -413,4 +413,92 @@ const COLD = 0x7fd8ff;
   );
 }
 
+// ================================================================ 32 窥缝
+// 金库只有一扇挡子弹的玻璃窗，和墙脚一条三指高的细缝。窗里能看见金库深处的白墙，可子弹打不过去。
+// 缩小的不是身体，是眼睛：子弹是从眼睛里射出的，眼睛矮下来，才能顺着细缝一直飞到白墙上。
+{
+  add(
+    {
+      name: '窥缝',
+      hint: '透过玻璃能看见金库里的白墙，可子弹穿不过去。墙脚那条缝，要多低的视线才望得进去？',
+      gun: 'both',
+      spawn: { pos: [0, 0, 2], yaw: 0 },
+      brushes: [
+        // 大厅
+        ...room([-7, 7], [0, 5], [-6, 3], {}, ['zn']),
+        // 石墙：6 米厚，窗口 + 墙脚的细缝（宽 1 米、高 0.35 米、深 6 米）
+        ...wallWithHoles(
+          'z',
+          [-12, -6],
+          [-7.5, 7.5],
+          [0, 5],
+          [
+            [-0.5, 0.5, 0.55, 0.9],
+            [-5.5, -1.5, 1.0, 2.6],
+          ],
+          'concrete'
+        ),
+        box(-5.5, 1.0, -6.3, -1.5, 2.6, -6.2, 'glass'),
+        strip(-0.5, 0.55, -11.98, 0.5, 0.565, -6.02, COLD, 1.3),
+        // 金库：北墙整面是白板
+        ...room([-7, 7], [0, 5], [-20, -12], {}, ['zp']),
+        panelZ(-20, 1, [-3, 3], [0, 4]),
+        strip(-3.1, 0.05, -19.9, -3.05, 3.95, -19.85, AMBER, 1.2),
+        strip(3.05, 0.05, -19.9, 3.1, 3.95, -19.85, AMBER, 1.2),
+        ...planter(5.8, -14, 0, 1),
+        ...planter(-6, -19, 0, 0.9),
+        // 大厅里的两块白板：西墙一块大的，东墙一块小的（浅蓝色）
+        panelX(-7, 1, [-4, 0], [0, 3]),
+        panelX(7, -1, [-2, -0.8], [0, 1.5], 'whiteS'),
+        ...planter(-6.2, 2.2, 0, 1),
+        ...planter(6.2, 2.2, 0, 1),
+      ],
+      entities: [
+        exit(-3.5, 0, -16, [2, 2.5, 2]),
+        light(-2, 4.6, 0, 40, { color: 0xe4f6ff }),
+        light(3, 4.6, -3, 28, { color: 0xe4f6ff }),
+        light(0, 4.4, -16, 60, { color: 0xffe9c4, distance: 26 }),
+        light(0, 1.8, -18.6, 12, { color: 0xffe9c4, fixture: false, distance: 10 }),
+      ],
+    },
+    async ({ ev, shot }) => {
+      await shot('c6-5-start');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        // 1. 蓝门开在西墙的大白板上，橙门开在东墙的小白板上：钻进去，缩成 0.45 倍
+        if (!pt.fire('blue', [-7, 1.5, -2])) throw new Error('西墙的白板没能开门');
+        if (!pt.fire('orange', [7, 0.75, -1.4])) throw new Error('东墙的小白板没能开门');
+        pt.walkTo(-5.5, -2, 8, 0.2);
+        pt.walkDir(90, 4, (gg) => gg.player.position.x > 3 || gg.player.scale < 0.9);
+        pt.run(0.8);
+        if (g.player.scale > 0.5) throw new Error('没缩小 ' + g.player.scale);
+      });
+      await shot('c6-5-small');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        // 2. 走到细缝前，视线对着缝里发光的那条线开枪：橙门飞到金库的白墙上
+        pt.walkTo(0, -4.4, 8, 0.15);
+        pt.face(0, -20);
+        const eye = g.player.eye(g.player.position.clone());
+        if (!pt.fire('orange', [0, eye.y, -20])) throw new Error('子弹没能顺着细缝飞进金库');
+        const o = g.portals.orange.position;
+        if (o.z > -19.5) throw new Error('橙门没落在金库的白墙上 ' + o.toArray());
+      });
+      await shot('c6-5-shot');
+      await ev(() => {
+        const pt = window.__pt;
+        const g = window.__game;
+        // 3. 钻回蓝门，从金库的白墙里出来，走向出口
+        pt.walkTo(-5.5, -2, 8, 0.2);
+        pt.walkDir(90, 4, (gg) => gg.player.position.z < -15);
+        pt.run(0.5);
+        pt.walkTo(-3.5, -16, 8, 0.3);
+        pt.run(0.3);
+      });
+    }
+  );
+}
+
 export default levels;

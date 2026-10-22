@@ -6,8 +6,9 @@ const FILES = [
   ['第 3 章 · 放大与缩小', './ch3.mjs'],
   ['第 4 章 · 光与力', './ch4.mjs'],
   ['第 5 章 · 综合难关', './ch5.mjs'],
-  ['第 6 章 · 云海奇境', './ch6.mjs'],
-  ['第 7 章 · 星海万象', './ch7.mjs'],
+  ['第 6 章 · 错觉', './ch6.mjs'],
+  ['第 7 章 · 因果', './ch7.mjs'],
+  ['第 8 章 · 顿悟', './ch8.mjs'],
 ];
 const only = process.env.ONLY ? process.env.ONLY.split(',').map(Number) : null;
 

@@ -16,10 +16,12 @@ export const THEMES = [
   { wall: 0x77a6e6, floor: 'floor_dark', floorTint: 0xa9c9ff, sky: 0xbfd8ff, ground: 0x1d2a3d, hemi: 0.5, exposure: 1.18, bloom: 0.45, accent: 0x38d6ff, dust: 0xbfe6ff, env: 0.6 },
   // 4 综合难关：暗红与炭黑，压迫感
   { wall: 0xcf7a74, floor: 'floor_dark', floorTint: 0xd8b6b0, sky: 0xffcfc4, ground: 0x3b1c1a, hemi: 0.55, exposure: 1.2, bloom: 0.5, accent: 0xff6a45, dust: 0xffd1c4, env: 0.55 },
-  // 5 云海奇境：奶白色的石头、金色的灯带、明亮的天空
+  // 5 错觉：青玉色的薄雾，看上去什么都对、其实哪里都不对
+  { wall: 0x9fd0c4, floor: 'floor_cool', floorTint: 0xcfe8e0, sky: 0xd6f5ee, ground: 0x1c3a38, hemi: 0.55, exposure: 1.15, bloom: 0.4, accent: 0x5ef0c8, dust: 0xd6fff4, env: 0.6 },
+  // 6 因果：石板灰与琥珀色的机关感
+  { wall: 0xa6adb8, floor: 'floor_dark', floorTint: 0xc8c4bc, sky: 0xe6ecff, ground: 0x2a2630, hemi: 0.5, exposure: 1.2, bloom: 0.46, accent: 0xffb347, dust: 0xffe8c0, env: 0.55 },
+  // 7 顿悟：象牙白与金色，像顿悟的那一瞬间
   { wall: 0xe4d9c2, floor: 'floor_light', floorTint: 0xefe5d0, sky: 0xd8ecff, ground: 0x8a7a60, hemi: 0.85, exposure: 1.05, bloom: 0.38, accent: 0xffd36b, dust: 0xfff4d8, env: 0.7 },
-  // 6 星海万象：深空，冷色调
-  { wall: 0x9db4ff, floor: 'floor_cool', floorTint: 0xb8c4e8, sky: 0x9fb4ff, ground: 0x0b0e22, hemi: 0.35, exposure: 1.15, bloom: 0.5, accent: 0x7af0ff, dust: 0xcfe0ff, env: 0.5 },
 ];
 
 const _c = new THREE.Color();

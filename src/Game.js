@@ -333,6 +333,7 @@ export class Game {
     this.player.spawn(sp.pos, sp.yaw ?? 0, sp.scale ?? 1);
     this.player.burn = 0;
     this.gunView.setColor(def.gun === 'orange' ? 'orange' : 'blue');
+    this.gunView.visible = def.gun !== 'none'; // 没枪的关卡不画手里的枪
     this.renderer.shadowMap.needsUpdate = true;
     this.time = 0;
     this._updateSignals();

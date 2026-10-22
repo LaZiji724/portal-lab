@@ -13,14 +13,20 @@ const brushes = [
   box(-10, 0, -12, -7.5, TOP, -4, STONE),
   box(-4.5, 0, -12, -3, TOP, -4, STONE),
   box(-7.5, 0, -12, -4.5, TOP, -7, STONE),
+  // 升降井的门楣：把井口 2.6 米以上封死（否则站在大厅里就能隔着井口打到高处的白板 PT，整个“先上楼”就被绕过去了）
+  box(-7.5, 2.6, -4.0, -4.5, TOP, -3.7, STONE),
   // 出口台 E
   box(7, 0, -12, 13, TOP, -4, STONE),
   // 仅有的两块白板：PB 在升降井旁边的立柱南面（楼下），PT 在阳台上方的北墙高处
   panelZ(-4, 1, [-4.4, -3.1], [0.15, 2.5]),
-  panelZ(-12, 1, [-8, -6], [8.0, 10.4]),
+  panelZ(-12, 1, [-9.9, -7.7], [8.0, 10.4]),
+  // 阳台的玻璃栏杆（1.4 米）：子弹过不去，所以站在大厅里（哪怕踩着方块跳起来）也打不到阳台上的白板 PT，只能先上楼；栏杆在桥头留一个口
+  box(-10, TOP, -4.0, -3.0, TOP + 1.4, -3.96, 'glass'),
+  box(-3.0, TOP, -12, -2.96, TOP + 1.4, -8.5, 'glass'),
+  box(-3.0, TOP, -7.5, -2.96, TOP + 1.4, -4.0, 'glass'),
   // 光桥通道：两道玻璃把桥夹在中间（桥面 1.6 宽，通道 1.0 宽，方块只能顺着光走）
-  box(-3, TOP - 0.1, -8.55, 7, 11.5, -8.5, 'glass'),
-  box(-3, TOP - 0.1, -7.5, 7, 11.5, -7.45, 'glass'),
+  box(-3, 4.5, -8.55, 7, 11.5, -8.5, 'glass'),
+  box(-3, 4.5, -7.5, 7, 11.5, -7.45, 'glass'),
   // 出口门后的走廊
   ...room([9, 12], [TOP, TOP + 3], [-17.5, -12.5], WALLS, ['zp']),
   // ---- 装饰：升降井的光、踏板的“电线”、台边的金线、盆栽
@@ -41,13 +47,14 @@ const brushes = [
   ...plant(-9.3, 9.6, 1.4),
   ...plant(11.8, 9.8, 1.4),
   ...frameZ(-12, 1, [9, 12], [TOP, TOP + 3], 0xffd36b, 0.1, 1.3, 0.05),
+  ...frameZ(-3.7, 1, [-7.5, -4.5], [0, 2.6], 0xffd36b, 0.1, 1.3, 0.05),
   // 地面中央一圈淡金色的地毯
   slab(-4, 0, -1, 8, 0.02, 9, 0xd9c79a, 'plate'),
 ];
 
 const entities = [
   // 升降台：踏板 h 被压住才上升（静止时台面与地面齐平，升到顶比阳台低一截）
-  { type: 'platform', pos: [-6, -0.18, -5.2], to: [-6, LIFT_TOP - 0.2, -5.2], size: [2.9, 0.4, 3.4], speed: 1.5, when: ['h'] },
+  { type: 'platform', pos: [-6, -0.18, -5.6], to: [-6, LIFT_TOP - 0.2, -5.6], size: [2.9, 0.4, 2.6], speed: 1.5, when: ['h'] },
   { type: 'button', id: 'h', pos: [-4.0, 0, -2.7] },
   { type: 'button', id: 'f', pos: [10, TOP, -5.6] },
   { type: 'cube', pos: [-3.5, 0.31, 1.5] },
@@ -111,10 +118,10 @@ export default {
       for (let i = 0; i < 45; i++) g.debugRun(1 / 30, { x: 0, y: 1 });
       if (g.player.position.y < 8.5) throw new Error('没能跳上阳台：' + g.player.position.toArray());
       pt.log.push('A ' + g.player.position.toArray().map((v) => +v.toFixed(2)));
-      pt.walkTo(-7, -9, 6, 0.3);
+      pt.walkTo(-8.8, -9, 6, 0.3);
       pt.log.push('B ' + g.player.position.toArray().map((v) => +v.toFixed(2)));
-      if (!pt.fire('orange', [-7, 9.2, -12])) throw new Error('橙门没打上 PT：' + JSON.stringify(pt.why('orange', [-7, 9.2, -12])));
-      pt.walkTo(-7, -11.3, 6, 0.1);
+      if (!pt.fire('orange', [-8.8, 9.2, -12])) throw new Error('橙门没打上 PT：' + JSON.stringify(pt.why('orange', [-8.8, 9.2, -12])));
+      pt.walkTo(-8.8, -11.3, 6, 0.1);
       g.player.yaw = 0;
       g.player.pitch = -0.61;
       g.debugRun(0.2);

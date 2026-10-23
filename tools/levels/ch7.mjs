@@ -241,7 +241,7 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
         panelX(9, -1, [5, 7.4], [0.2, 2.6]),
         ...ex.brushes,
         // 暖色 = 方块和大门；青色 = 桥、踏板、消散力场
-        ...floorFrame(-7.6, 8, 0.7, AMBER),
+        ...floorFrame(-8.2, 8, 0.7, AMBER),
         ...floorFrame(4, -3, 1.0, CYAN),
         ...floorFrame(0, -17, 1.0, CYAN),
         post(2.4, -4.6),
@@ -258,8 +258,8 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
         ...plant(8.2, -24.6, 1.1),
       ],
       entities: [
-        { type: 'button', id: 'p', pos: [-7.6, 0, 8] },
-        { type: 'cube', pos: [-7.6, 0.46, 8] },
+        { type: 'button', id: 'p', pos: [-8.2, 0, 8] },
+        { type: 'cube', pos: [-8.2, 0.46, 8] },
         { type: 'button', id: 'q', pos: [4, 0, -3] },
         { type: 'button', id: 'f', pos: [0, 0, -17] },
         { type: 'bridge', pos: [0, 0.15, -5.8], dir: [0, 0, -1], when: ['q'] },
@@ -270,7 +270,7 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
         light(0, 5.8, 9, 30, { color: WARM, shadow: true }),
         light(0, 5.8, -2, 26, { color: WARM }),
         light(0, 5.8, -19, 30, { color: COOL, shadow: true }),
-        light(-7, 2.8, 8, 7, { color: AMBER, fixture: false }),
+        light(-7.4, 2.8, 8, 7, { color: AMBER, fixture: false }),
         light(4, 2.4, -3, 7, { color: CYAN, fixture: false }),
         light(0, 2.4, -17, 6, { color: CYAN, fixture: false }),
         light(0, 2.6, -24.8, 8, { color: AMBER, fixture: false }),
@@ -294,9 +294,8 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
         pt.face(9, 6.2);
         pt.run(0.3);
         const b = g.portals.blue.position.toArray();
-        if (!pt.useVia(b, [-7.6, 0.5, 8])) throw new Error('没有把方块拽出来');
+        if (!pt.useVia(b, [-8.2, 0.5, 8])) throw new Error('没有把方块拽出来');
         pt.run(0.5);
-        if (pt.state().signals.p) throw new Error('方块离开后踏板还亮着');
       });
       await shot('c7-3-pulled');
       // 3. 把方块带到桥头的踏板上放下，桥出现
@@ -308,6 +307,7 @@ const add = (def, solve) => levels.push({ def, solve: wrapSolve(solve) });
         pt.run(1.2);
         const s = pt.state();
         if (!s.signals.q) throw new Error('方块没压住桥头踏板：' + JSON.stringify(s.cubes));
+        if (s.signals.p) throw new Error('方块离开后踏板还亮着：' + JSON.stringify(s.cubes));
         if (g.player.held) throw new Error('方块还在手里');
       });
       await shot('c7-3-bridge');
